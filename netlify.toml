@@ -1,0 +1,55 @@
+# Netlify 部署配置
+# 站点从 web/ 目录发布；APK 由 GitHub Actions 自动构建后放进 web/download/
+
+[build]
+  publish = "web"
+  command = ""
+
+# 基础安全响应头
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "microphone=(self), camera=(), geolocation=()"
+
+# 页面：不缓存，保证改完立刻生效
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# 图标：长缓存（文件名不变但内容固定）
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# PWA 清单
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
+
+# 版本信息：绝不缓存，否则 App 检测不到更新
+[[headers]]
+  for = "/app-version.json"
+  [headers.values]
+    Content-Type = "application/json; charset=utf-8"
+    Cache-Control = "no-store, no-cache, must-revalidate"
+
+# APK 安装包：强制下载
+[[headers]]
+  for = "/download/*.apk"
+  [headers.values]
+    Content-Type = "application/vnd.android.package-archive"
+    Content-Disposition = "attachment"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Service Worker 必须不被缓存，否则更新不生效
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"
