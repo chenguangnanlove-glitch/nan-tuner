@@ -1,0 +1,39 @@
+# ---------- 签名密钥（绝对不要提交到仓库！） ----------
+*.jks
+*.keystore
+*.p12
+tools/*.pem
+tools/keystore/
+
+# ---------- Android ----------
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.iml
+*.apk
+*.aab
+
+# ---------- 系统 ----------
+.DS_Store
+Thumbs.db
+
+# ---------- 编辑器 ----------
+.vscode/
+.idea/
+
+# ---------- Netlify ----------
+.netlify/
+
+# ---------- 构建脚本的状态记录 ----------
+tools/.build-state.json
+tools/repo-report.txt
+tools/.t_*.txt
+tools/.both_test_out.txt
+
+# ---------- Python 缓存 ----------
+__pycache__/
+*.pyc
+*.pyo

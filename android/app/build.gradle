@@ -1,0 +1,83 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ---------- 可配置项（由 gradle.properties / 命令行 / 环境变量提供） ----------
+def siteUrl = (project.findProperty('shixin.siteUrl') ?: 'https://your-site.netlify.app')
+        .toString().replaceAll('/+$', '')          // 去掉结尾斜杠
+def vCode = (project.findProperty('versionCode') ?: 1) as int
+def vName = (project.findProperty('versionName') ?: '1.0.0').toString()
+
+// 签名：优先读环境变量（GitHub Actions Secrets），其次读本地文件
+def ksPath  = System.getenv('SHIXIN_KEYSTORE')        ?: project.findProperty('shixin.keystore')
+def ksPass  = System.getenv('SHIXIN_STORE_PASSWORD')  ?: project.findProperty('shixin.storePassword')
+def keyPass = System.getenv('SHIXIN_KEY_PASSWORD')    ?: project.findProperty('shixin.keyPassword')
+def keyAliasName = System.getenv('SHIXIN_KEY_ALIAS')  ?: project.findProperty('shixin.keyAlias') ?: 'shixin'
+def hasKeystore = ksPath != null && !ksPath.toString().isEmpty() && file(ksPath.toString()).exists()
+
+android {
+    namespace 'com.shixin.tuner'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.shixin.tuner'
+        minSdk 24                 // Android 7.0 起
+        targetSdk 34              // 34 可避开 Android 15 的强制全屏边到边
+        versionCode vCode
+        versionName vName
+        resourceConfigurations += ['zh', 'en']   // 只保留中英文，减小体积
+
+        buildConfigField 'String', 'SITE_URL', "\"${siteUrl}\""
+    }
+
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile file(ksPath.toString())
+                storeType 'PKCS12'
+                storePassword ksPass?.toString() ?: ''
+                keyAlias keyAliasName.toString()
+                keyPassword keyPass?.toString() ?: ''
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false          // 代码量很小，不混淆，方便排查问题
+            shrinkResources false
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+                logger.lifecycle('⚠  未找到签名密钥，本次使用 debug 签名（仅供本机测试，不能分发）')
+            }
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources.excludes += ['META-INF/*.version', 'META-INF/*.kotlin_module']
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'   // WebViewAssetLoader：让离线页面也是「安全上下文」，麦克风才可用
+    implementation 'androidx.annotation:annotation:1.9.1'
+}
