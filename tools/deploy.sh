@@ -292,7 +292,8 @@ if git diff --staged --quiet 2>/dev/null; then
   ALREADY_DEPLOYED=1
   ok "仓库内容已经是最新（之前已经部署过）"
 else
-  git commit --quiet -m "接入安卓 App 与 PWA 支持
+  # 提交信息可通过环境变量自定义（用于修复类提交）
+  COMMIT_MSG="${SHIXIN_COMMIT_MSG:-接入安卓 App 与 PWA 支持
 
 把网页版调音器升级为可安装的安卓 App：
 - PWA 支持：可添加到主屏幕、离线可用
@@ -301,8 +302,9 @@ else
 - 自动构建：GitHub Actions 打包 APK 并发布
 
 原有的 index.html 已移动到 archive/old-index.html 备份。
-Netlify 发布目录改为 web/（由 netlify.toml 指定）。" \
-    || die "提交失败"
+Netlify 发布目录改为 web/（由 netlify.toml 指定）。}"
+
+  git commit --quiet -m "$COMMIT_MSG" || die "提交失败"
 
   ok "已提交"
 fi
