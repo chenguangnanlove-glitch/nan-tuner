@@ -13,8 +13,15 @@ android/local.properties
 android/.idea/
 android/captures/
 *.iml
+
+# 构建产物：默认不提交（防止把本地的 APK 误传上去）
 *.apk
 *.aab
+
+# 但是 web/download/ 下的 APK 是个例外：
+# 那是给用户下载用的正式安装包，由 GitHub Actions 构建后自动提交，
+# Netlify 发布它，用户才能从网站下载。所以必须允许提交。
+!web/download/*.apk
 
 # ---------- 系统 ----------
 .DS_Store

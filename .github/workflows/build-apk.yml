@@ -10,7 +10,11 @@ on:
     paths:
       - 'android/**'
       - 'web/app-version.json'
+      - '.gitignore'
       - '.github/workflows/build-apk.yml'
+
+# 注意：CI 构建完会把 APK 提交到 web/download/，
+# 那个路径故意不在上面的列表里，避免自己触发自己。
 
 permissions:
   contents: write        # 构建完成后把 APK 提交回仓库
