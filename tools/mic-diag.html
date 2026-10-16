@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>麦克风诊断 · 始信音乐</title>
+<style>
+  :root{
+    --bg:#0a0a0a; --surface:#161616; --surface-2:#1f1f1f;
+    --text:#f0f0f0; --text-2:#909090; --text-3:#5e5e5e;
+    --ok:#7fc87f; --bad:#e06060; --warn:#dcb050;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:18px 16px 40px;
+    background:var(--bg);color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1{font-size:17px;margin:0 0 4px;font-weight:600}
+  .sub{color:var(--text-3);font-size:12px;margin-bottom:18px}
+  .item{
+    background:var(--surface);border-radius:12px;
+    padding:12px 14px;margin-bottom:10px;
+    display:flex;gap:11px;align-items:flex-start;
+  }
+  .icon{flex:none;width:20px;font-size:15px;line-height:1.5}
+  .icon.ok{color:var(--ok)}
+  .icon.bad{color:var(--bad)}
+  .icon.warn{color:var(--warn)}
+  .icon.wait{color:var(--text-3)}
+  .body{flex:1;min-width:0}
+  .name{font-weight:500}
+  .detail{
+    color:var(--text-2);font-size:12.5px;
+    margin-top:3px;word-break:break-word;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .detail.err{color:#f0a0a0}
+  .bar{
+    height:12px;border-radius:6px;background:var(--surface-2);
+    overflow:hidden;margin-top:10px;
+  }
+  .fill{
+    height:100%;width:0%;background:var(--ok);
+    border-radius:6px;transition:width .08s linear;
+  }
+  .box{
+    background:var(--surface-2);border-radius:10px;
+    padding:11px 13px;margin-top:12px;
+    font-size:12.5px;color:var(--text-2);
+  }
+  .box b{color:var(--text)}
+  ol{margin:8px 0 0;padding-left:20px}
+  li{margin-bottom:5px}
+  button{
+    appearance:none;border:0;cursor:pointer;
+    font-family:inherit;font-size:14px;font-weight:500;
+    padding:13px;border-radius:12px;width:100%;
+    background:var(--surface-2);color:var(--text);
+    margin-top:14px;
+  }
+  button:active{transform:scale(.99)}
+</style>
+</head>
+<body>
+
+<h1>麦克风诊断</h1>
+<div class="sub">这一页只做检查，不会修改任何东西</div>
+
+<div id="list"></div>
+<div id="verdict"></div>
+
+<button id="retry">重新检测</button>
+
+<script>
+(function(){
+  var list = document.getElementById('list');
+  var verdict = document.getElementById('verdict');
+
+  function row(id, state, name, detail){
+    var box = document.getElementById(id);
+    if (!box){
+      box = document.createElement('div');
+      box.className = 'item'; box.id = id;
+      box.innerHTML = '<div class="icon"></div><div class="body">' +
+                      '<div class="name"></div><div class="detail"></div></div>';
+      list.appendChild(box);
+    }
+    var ic = box.querySelector('.icon');
+    ic.className = 'icon ' + state;
+    ic.textContent = state === 'ok' ? '✓' : (state === 'bad' ? '✗' : (state === 'warn' ? '!' : '…'));
+    box.querySelector('.name').textContent = name;
+    var d = box.querySelector('.detail');
+    d.textContent = detail || '';
+    d.className = 'detail' + (state === 'bad' ? ' err' : '');
+    return box;
+  }
+
+  function say(html){
+    verdict.innerHTML = '<div class="box">' + html + '</div>';
+  }
+
+  var stream = null;
+
+  function run(){
+    list.innerHTML = '';
+    verdict.innerHTML = '';
+    if (stream){ try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){} stream = null; }
+
+    // 1) 是否安全上下文
+    var secure = window.isSecureContext;
+    var host = location.hostname;
+    row('sec', secure ? 'ok' : 'bad',
+        '安全上下文（麦克风的前提）',
+        secure ? ('是 · ' + location.origin)
+               : ('不是！当前 ' + location.origin + ' —— 浏览器只允许 https 和 localhost 用麦克风'));
+
+    // 2) mediaDevices 是否存在
+    var md = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    row('api', md ? 'ok' : 'bad',
+        '浏览器提供麦克风接口',
+        md ? '有' : '没有 —— 浏览器版本太旧，或者页面不在安全上下文里');
+
+    if (!md){
+      say('<b>卡在第一关。</b>请确认地址是 <b>http://127.0.0.1:8123</b> 这样开头的（不能是 file:// 开头）。');
+      return;
+    }
+
+    // 3) 权限状态（能不能查出来）
+    if (navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({name:'microphone'}).then(function(p){
+        var st = p.state;
+        row('perm', st === 'granted' ? 'ok' : (st === 'denied' ? 'bad' : 'warn'),
+            '浏览器里的麦克风权限',
+            st === 'granted' ? '已允许'
+              : st === 'denied' ? '已被拒绝 —— 这就是问题所在'
+              : '还没问过（下次调用时会弹窗）');
+      }).catch(function(){
+        row('perm','wait','浏览器里的麦克风权限','这个浏览器不支持查询，跳过');
+      });
+    }
+
+    // 4) 真正调用一次
+    var box = row('gum','wait','实际获取麦克风','正在请求…（如果弹出询问，请点「允许」）');
+
+    var started = Date.now();
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:true, channelCount:1 }
+    }).then(function(s){
+      stream = s;
+      var ms = Date.now() - started;
+      var t = s.getAudioTracks()[0] || {};
+      var st = (t.getSettings ? t.getSettings() : {}) || {};
+      row('gum','ok','实际获取麦克风','成功（用了 ' + ms + ' 毫秒）');
+
+      // 轨道信息
+      row('track','ok','音频轨道',
+          '设备：' + (t.label || '(未命名)') +
+          ' · 状态：' + (t.readyState || '?') +
+          (st.sampleRate ? ' · 采样率：' + st.sampleRate + ' Hz' : ''));
+
+      // 5) 音量：证明真的能收音
+      var abox = row('level','wait','实时电平','对着麦克风说话或拨一下琴弦，看这根条动不动');
+      var bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.innerHTML = '<div class="fill"></div>';
+      abox.querySelector('.body').appendChild(bar);
+
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var src = ctx.createMediaStreamSource(s);
+      var an = ctx.createAnalyser();
+      an.fftSize = 2048;
+      src.connect(an);
+      var buf = new Float32Array(an.fftSize);
+      var fill = bar.querySelector('.fill');
+      var peak = 0;
+
+      (function tick(){
+        an.getFloatTimeDomainData(buf);
+        var sum = 0;
+        for (var i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        var rms = Math.sqrt(sum / buf.length);
+        if (rms > peak) peak = rms;
+        fill.style.width = Math.min(100, rms * 500) + '%';
+        if (rms > 0.01){
+          abox.querySelector('.detail').textContent = '有声音！峰值 ' + peak.toFixed(4);
+        }
+        requestAnimationFrame(tick);
+      })();
+
+      say('<b>全部通过。</b>麦克风工作正常 —— 回到调音器页面，点「开始调音」应该就能用了。' +
+          '<br><br>如果调音器里还是没反应，那是另一处的问题，把这一页的结果告诉你的助手。');
+
+    }).catch(function(err){
+      var ms = Date.now() - started;
+      var name = (err && err.name) || '?';
+      var msg  = (err && err.message) || String(err);
+      row('gum','bad','实际获取麦克风','失败（' + ms + ' 毫秒）· ' + name + ': ' + msg);
+
+      var tip = '';
+      if (name === 'NotAllowedError'){
+        tip = '<b>权限被拒绝了。</b>这是最常见的情况。' +
+              '<ol>' +
+              '<li>看地址栏<b>最左边</b>那个图标（锁形或圆圈），点一下</li>' +
+              '<li>找到「麦克风」，改成<b>允许</b></li>' +
+              '<li>刷新页面（Command + R），再点下面的「重新检测」</li>' +
+              '</ol>' +
+              '<br>如果列表里没有麦克风选项：打开 <b>chrome://settings/content/microphone</b>，' +
+              '看「不允许使用麦克风」的列表里有没有 127.0.0.1，有就删掉。';
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError'){
+        tip = '<b>没找到麦克风设备。</b>检查麦是否插好 / 系统里是否识别到。';
+      } else if (name === 'NotReadableError' || name === 'TrackStartError'){
+        tip = '<b>麦克风被别的程序占用了。</b>常见的是 Logic Pro、Zoom、腾讯会议、OBS 这类。' +
+              '把它们关掉，再点「重新检测」。';
+      } else if (name === 'SecurityError'){
+        tip = '<b>被安全策略拦住了。</b>确认地址不是 file:// 开头。';
+      } else {
+        tip = '把上面这行错误原样告诉你的助手。' +
+              '<br><br>可能相关的系统设置：<b>系统设置 → 隐私与安全性 → 麦克风</b>，' +
+              '看看「Google Chrome」有没有被勾上。';
+      }
+      say(tip);
+    });
+  }
+
+  document.getElementById('retry').addEventListener('click', run);
+  run();
+})();
+</script>
+</body>
+</html>

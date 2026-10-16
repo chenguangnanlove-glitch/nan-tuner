@@ -27,7 +27,7 @@ scanned = 0
 for dirpath, dirnames, filenames in os.walk(BASE):
     dirnames[:] = [d for d in dirnames if d not in (".git", "build", ".gradle", "node_modules")]
     for fn in filenames:
-        if not (fn.endswith(".sh") or fn.endswith(".bash")):
+        if not (fn.endswith(".sh") or fn.endswith(".bash") or fn.endswith(".command")):
             continue
         path = os.path.join(dirpath, fn)
         rel = os.path.relpath(path, BASE)

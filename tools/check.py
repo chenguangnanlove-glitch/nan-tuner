@@ -370,7 +370,7 @@ _shell_files = []
 for _dp, _dn, _fn in os.walk(BASE):
     _dn[:] = [d for d in _dn if d not in (".git", "build", ".gradle")]
     for _f in _fn:
-        if _f.endswith((".sh", ".bash")):
+        if _f.endswith((".sh", ".bash", ".command")):
             _shell_files.append(os.path.join(_dp, _f))
 
 _PAT = _re.compile(r"\$(?!\{)([A-Za-z_][A-Za-z0-9_]*)([^\x00-\x7F])")

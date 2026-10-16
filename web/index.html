@@ -8,19 +8,30 @@
 <title>始信音乐 · 调音器</title>
 <style>
   :root{
-    --bg:#0e0c0a;
-    --surface:#1a1815;
-    --surface-2:#211f1b;
-    --surface-3:#2b2823;
+    --bg:#0a0a0a;
+    --surface:#161616;
+    --surface-2:#1f1f1f;
+    --surface-3:#2b2b2b;
     --border:rgba(240,235,227,.06);
     --border-2:rgba(240,235,227,.10);
-    --text:#f0ebe3;
-    --text-2:#948a7d;
-    --text-3:#5e5750;
-    --accent:#d4a574;
-    --accent-soft:rgba(212,165,116,.13);
-    --success:#8fbf7a;
-    --warn:#e0a458;
+    --text:#f0f0f0;
+    --text-2:#909090;
+    --text-3:#5e5e5e;
+
+    /* 主题色（由 tools/ui_tool.py 生成）*/
+    --accent:#a0a0a0;
+    --accent-light:#bababa;
+    --accent-soft:rgba(160,160,160,.13);
+    --accent-rgb:160,160,160;
+    --accent-light-rgb:186,186,186;
+
+    --success:#7fc87f;
+    --success-rgb:127,200,127;
+    --warn:#dcb050;
+    --warn-rgb:220,176,80;
+
+    /* 品牌金色：只用在 logo 与品牌名上 */
+    --gold:#d4a574;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;min-height:100%;height:100%}
@@ -30,8 +41,8 @@
     padding:0;
     background:var(--bg);
     background-image:
-      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(212,165,116,.07), transparent 62%),
-      radial-gradient(ellipse 70% 45% at 50% 108%, rgba(212,165,116,.035), transparent 70%);
+      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(var(--accent-rgb),.07), transparent 62%),
+      radial-gradient(ellipse 70% 45% at 50% 108%, rgba(var(--accent-rgb),.035), transparent 70%);
     color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
     -webkit-font-smoothing:antialiased;
@@ -74,29 +85,36 @@
   /* ============ 顶部 ============ */
   .header{
     display:flex;align-items:center;justify-content:space-between;
-    gap:12px;margin-bottom:22px;flex:none;
+    gap:10px;margin-bottom:50px;flex:none;
+    position:relative;   /* 设置面板以它为锚点做浮层 */
   }
-  .brand{display:flex;align-items:center;gap:11px;min-width:0}
-  .brand-mark{width:34px;height:34px;flex:none}
-  .brand-text{display:flex;flex-direction:column;gap:4px}
+  .brand{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    flex:none;
+  }
+  .brand-mark{width:30px;height:30px;flex:none;display:block}
+  .brand-text{display:flex;flex-direction:column;align-items:center}
   .brand-cn{
-    font-size:15px;font-weight:500;line-height:1;
-    letter-spacing:.16em;color:var(--text);
+    font-size:9px;font-weight:500;line-height:1;
+    letter-spacing:.06em;color:var(--gold);
+    white-space:nowrap;
   }
-  .brand-en{
-    font-size:8.5px;font-weight:500;line-height:1;
-    letter-spacing:.34em;color:var(--text-3);
-  }
+  .brand-en{ display:none }
 
-  .header-right{display:flex;align-items:center;gap:12px;flex:none}
+  /* 右侧：小太阳在上，麦克风状态在它正下方 */
+  .header-right{
+    display:flex;flex-direction:column;align-items:center;
+    gap:2px;flex:none;
+  }
 
   .mic{
-    display:flex;align-items:center;gap:6px;
-    font-size:11px;font-weight:500;color:var(--text-3);
+    display:flex;align-items:center;gap:4px;
+    font-size:8px;font-weight:500;color:var(--text-3);
     letter-spacing:.02em;
+    order:2;
   }
   .mic .dot{
-    width:6px;height:6px;border-radius:50%;
+    width:4px;height:4px;border-radius:50%;
     background:#3d3830;transition:all .3s;
   }
   .mic.on .dot{background:var(--success);box-shadow:0 0 6px var(--success)}
@@ -105,37 +123,48 @@
   .settings-btn{
     appearance:none;border:0;background:transparent;
     color:var(--text-2);cursor:pointer;
-    width:34px;height:34px;border-radius:9px;
+    width:30px;height:30px;border-radius:8px;
     display:flex;align-items:center;justify-content:center;
     transition:all .2s;
     padding:0;
+    order:1;
   }
   .settings-btn:active{background:var(--surface-3);transform:scale(.94)}
   .settings-btn.active{color:var(--accent);background:var(--accent-soft)}
   .settings-btn svg{
-    width:18px;height:18px;
+    width:16px;height:16px;
     transition:transform .3s ease;
   }
   .settings-btn.active svg{transform:rotate(60deg)}
 
-  /* ============ 设置面板 ============ */
+  /* ============ 设置面板 ============
+     挂在 header 下方的浮层卡片，不参与文档流。
+     注意：它曾以内联方式撑开（max-height:0 → 220px + 18px 外边距），
+     展开时会把整页往下推 179px —— 调音页的「开始调音」按钮
+     会被直接推出屏幕（780 屏上从 695 掉到 892，而屏幕只有 780）。 */
   .settings-panel{
-    max-height:0;overflow:hidden;
-    transition:max-height .35s cubic-bezier(.4,0,.2,1), margin .35s, opacity .3s;
+    position:absolute;
+    top:calc(100% + 10px);
+    right:0;
+    width:min(74%, 272px);
+    z-index:60;
+    max-height:0;
+    overflow:hidden;
     opacity:0;
-    margin-bottom:0;
-    flex:none;
+    pointer-events:none;              /* 收起时不要隔着透明层挡点击 */
+    transition:max-height .32s cubic-bezier(.4,0,.2,1), opacity .2s ease;
   }
   .settings-panel.open{
-    max-height:220px;
+    max-height:260px;
     opacity:1;
-    margin-bottom:18px;
+    pointer-events:auto;
   }
   .settings-inner{
     background:var(--surface-2);
     border:1px solid var(--border);
     border-radius:14px;
     padding:4px 14px;
+    box-shadow:0 20px 44px rgba(0,0,0,.62), 0 3px 10px rgba(0,0,0,.45);
   }
   .setting-row{
     display:flex;align-items:center;justify-content:space-between;
@@ -194,13 +223,13 @@
     display:flex;background:var(--surface-2);
     border:1px solid var(--border);
     border-radius:12px;padding:3px;gap:2px;
-    margin-bottom:20px;flex:none;
+    margin-bottom:0;flex:none;
   }
   .mode-tab{
     flex:1;appearance:none;border:0;background:transparent;
     color:var(--text-3);font-family:inherit;
     font-size:13px;font-weight:500;
-    padding:11px 4px;border-radius:9px;cursor:pointer;
+    padding:9px 4px;border-radius:9px;cursor:pointer;
     transition:all .22s;letter-spacing:.04em;
   }
   .mode-tab:active{transform:scale(.97)}
@@ -211,11 +240,10 @@
 
   /* ============ 中间区域（可变高） ============ */
   .center{
-    flex:1 1 auto;
+    flex:none;
     display:flex;flex-direction:column;
-    justify-content:center;
     min-height:0;
-    margin-bottom:8px;
+    margin:48px 0 0;
   }
 
   /* ============ 表盘区（含音名） ============ */
@@ -231,7 +259,7 @@
     transition:cx .08s linear, cy .08s linear, fill .25s, r .25s;
   }
   .app.tuning-ok #needleDot{ fill:var(--success); }
-  .app.tuning-ok .gauge-arc{ stroke:rgba(143,191,122,.38); }
+  .app.tuning-ok .gauge-arc{ stroke:rgba(var(--success-rgb),.38); }
 
   /* 音名叠层 */
   .gauge-overlay{
@@ -287,22 +315,22 @@
     opacity:.7;
   }
 
-  /* 音量条 */
+  /* 音量条：标签在上、条在下，条拉满整宽（与乐器按钮、弦按钮左右对齐） */
   .level-row{
-    display:flex;align-items:center;gap:12px;
-    margin:14px 0 18px;flex:none;
+    display:flex;flex-direction:column;align-items:stretch;gap:6px;
+    margin:30px 0 0;flex:none;
   }
   .level-label{
-    font-size:9.5px;font-weight:500;color:var(--text-3);
-    letter-spacing:.2em;flex:none;
+    font-size:10px;font-weight:500;color:var(--text-3);
+    letter-spacing:.16em;flex:none;
   }
   .level-bar{
-    flex:1;height:3px;background:var(--surface-3);
-    border-radius:2px;overflow:hidden;
+    height:8px;background:var(--surface-2);
+    border-radius:4px;overflow:hidden;
   }
   .level-fill{
     height:100%;width:0%;
-    background:var(--text-2);border-radius:2px;
+    background:rgba(var(--success-rgb),.8);border-radius:4px;
     transition:width .14s linear;
   }
 
@@ -318,8 +346,11 @@
   }
 
   /* ============ 弦按钮 ============ */
-  .target-area{margin:0 0 20px;flex:none}
-  .strings{display:grid;gap:7px}
+  .target-area{margin:66px 0 0;flex:none}
+  /* 弦按钮整体坐在「钢琴琴键」的高度上（524-580）。
+     钢琴的八度行占 482-514，弦乐此处留白 42px ——
+     于是两种模式的按钮/琴键中线完全一致。 */
+  .strings{display:grid;gap:7px;margin-top:42px}
   .strings.guitar{grid-template-columns:repeat(6,1fr)}
   .strings.ukulele{grid-template-columns:repeat(4,1fr)}
   .sbtn{
@@ -327,8 +358,8 @@
     border:1px solid var(--border);
     background:transparent;
     border-radius:13px;
-    padding:16px 2px 15px;
-    display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:11px 2px 10px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
     transition:all .22s ease;
   }
   .sbtn:active{transform:scale(.96)}
@@ -342,28 +373,28 @@
     letter-spacing:.01em;
   }
   .sbtn.active{
-    border-color:rgba(212,165,116,.5);
+    border-color:rgba(var(--accent-rgb),.5);
     background:var(--accent-soft);
   }
   .sbtn.active .nm{color:var(--text)}
-  .sbtn.active .num{color:rgba(212,165,116,.75)}
+  .sbtn.active .num{color:rgba(var(--accent-rgb),.75)}
 
   .sbtn.in-tune{
-    border-color:rgba(143,191,122,.5);
-    background:rgba(143,191,122,.08);
+    border-color:rgba(var(--success-rgb),.5);
+    background:rgba(var(--success-rgb),.08);
   }
   .sbtn.in-tune .nm{color:var(--success)}
-  .sbtn.in-tune .num{color:rgba(143,191,122,.75)}
+  .sbtn.in-tune .num{color:rgba(var(--success-rgb),.75)}
 
   /* 钢琴 */
   .piano-area{display:none}
   .piano-area.show{display:block}
   .octave-row{
     display:flex;align-items:center;justify-content:center;
-    gap:16px;margin-bottom:14px;
+    gap:14px;margin-bottom:10px;height:32px;
   }
   .oct-btn{
-    width:40px;height:36px;border-radius:10px;
+    width:36px;height:32px;border-radius:9px;
     border:1px solid var(--border);
     background:transparent;
     color:var(--text-2);font-size:14px;font-weight:500;
@@ -374,51 +405,95 @@
   .oct-btn:active{transform:scale(.94);background:var(--surface-3)}
   .oct-btn:disabled{opacity:.25;cursor:not-allowed}
   .oct-display{
-    min-width:78px;text-align:center;
+    min-width:74px;text-align:center;
     font-size:14px;font-weight:500;color:var(--text);
     letter-spacing:.08em;font-variant-numeric:tabular-nums;
-    padding:7px 14px;border-radius:9px;
+    padding:6px 12px;border-radius:9px;
     background:var(--surface-2);
     border:1px solid var(--border);
   }
-  .piano-keys{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  /* 钢琴键盘：真钢琴布局
+     7 个白键平铺，5 个黑键压在白键交界处（宽、高均约为白键 6 成）。
+     整行高度锁 56px，与弦按钮同高 —— 两种模式的这一行始终对齐。 */
+  .piano-keys{
+    position:relative;
+    height:56px;
+  }
+  .pk-white{
+    display:flex;gap:3px;height:100%;
+  }
+  .pk-black{
+    position:absolute;
+    left:0;right:0;top:0;
+    height:60%;
+    pointer-events:none;        /* 容器不挡白键，黑键自己收事件 */
+  }
   .pkey{
     appearance:none;cursor:pointer;font-family:inherit;
-    border:1px solid var(--border);
-    background:var(--surface-2);
-    color:var(--text-2);
-    font-size:12px;font-weight:500;
-    padding:14px 2px;border-radius:10px;
-    transition:all .15s;letter-spacing:.01em;
+    font-weight:500;
+    padding:0 2px;
+    transition:background .12s, color .12s, transform .12s;
+    letter-spacing:.01em;
   }
-  .pkey.black{
-    background:var(--surface);
-    color:var(--text-3);
+  /* 白键 */
+  .pk-white .pkey{
+    flex:1 1 0;min-width:0;
+    border:1px solid rgba(0,0,0,.28);
+    background:#e9e9e9;
+    color:#5f5f5f;
+    font-size:11.5px;
+    border-radius:0 0 8px 8px;
+    display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:5px;
   }
-  .pkey:active{transform:scale(.96)}
-  .pkey.active{
-    background:var(--accent-soft);
-    border-color:rgba(212,165,116,.5);
-    color:var(--text);
+  .pk-white .pkey:active{ background:#cfcfcf }
+  .pk-white .pkey.active{
+    background:var(--accent);
+    color:#1a1a1a;
   }
-  .pkey.in-tune{
-    background:rgba(143,191,122,.08);
-    border-color:rgba(143,191,122,.5);
-    color:var(--success);
+  .pk-white .pkey.in-tune{
+    background:var(--success);
+    color:#10240d;
+  }
+  /* 黑键 */
+  .pk-black .pkey{
+    position:absolute;top:0;
+    width:7.6%;
+    height:100%;
+    transform:translateX(-50%);
+    pointer-events:auto;
+    border:1px solid #000;
+    background:#1c1c1c;
+    color:#9a9a9a;
+    font-size:9px;
+    border-radius:0 0 5px 5px;
+    display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:4px;
+    box-shadow:0 2px 5px rgba(0,0,0,.55);
+  }
+  .pk-black .pkey:active{ background:#000 }
+  .pk-black .pkey.active{
+    background:var(--accent);
+    color:#1a1a1a;
+  }
+  .pk-black .pkey.in-tune{
+    background:var(--success);
+    color:#10240d;
   }
 
   /* ============ 主按钮 ============ */
   .start{
     width:100%;appearance:none;border:0;cursor:pointer;
     font-family:inherit;
-    padding:18px;border-radius:14px;
+    margin-top:32px;
+    padding:15px;border-radius:14px;
     font-size:15px;font-weight:500;
     letter-spacing:.14em;
     color:#1a1410;
-    background:linear-gradient(180deg, #e8c197, #d4a574);
+    background:linear-gradient(180deg, var(--accent-light), var(--accent));
     box-shadow:
       0 1px 0 rgba(255,255,255,.25) inset,
-      0 4px 14px rgba(212,165,116,.15);
+      0 4px 14px rgba(var(--accent-rgb),.15);
     transition:all .2s;
     flex:none;
   }
@@ -435,7 +510,7 @@
     text-align:center;
     font-size:11px;font-weight:400;
     color:var(--text-3);
-    margin-top:14px;
+    margin-top:8px;
     letter-spacing:.04em;
     line-height:1.6;
     flex:none;
@@ -446,12 +521,14 @@
   @media (max-height:700px){
     .note .letter{font-size:60px}
     .note .oct{font-size:20px}
-    .header{margin-bottom:16px}
-    .mode-tabs{margin-bottom:16px}
-    .target-area{margin-bottom:16px}
-    .sbtn{padding:13px 2px 12px}
+    .header{margin-bottom:26px}
+    .center{margin-top:26px}
+    .target-area{margin-top:34px}
+    .strings{margin-top:26px}
+    .level-row{margin-top:16px}
+    .sbtn{padding:9px 2px 8px}
     .sbtn .nm{font-size:17px}
-    .start{padding:16px}
+    .start{margin-top:22px;padding:13px}
     #strobeCanvas{height:180px}
   }
 
@@ -465,7 +542,442 @@
     transition:transform .18s ease,background .18s ease;
     white-space:nowrap;
   }
-  .app-install-link:active{transform:scale(.95);background:rgba(212,165,116,.22)}
+  .app-install-link:active{transform:scale(.95);background:rgba(var(--accent-rgb),.22)}
+
+  /* METRO-BLOCK:CSS */
+  /* ══════════════════════════════════════════════════════
+     节拍器样式（由 tools/add_metronome.py 插入）
+     ══════════════════════════════════════════════════════ */
+
+  /* ── 顶部切换键：胶囊滑块 ──
+     朴素切换：只有背景位移和颜色变化，不做缩放/抖动 */
+  .app-tabs{
+    position:relative;
+    flex:1 1 auto;min-width:0;max-width:248px;
+    display:flex;
+    height:44px;
+    background:var(--surface-2);
+    border-radius:14px;
+    padding:3px;
+    box-sizing:border-box;
+  }
+  .app-tabs-thumb{
+    position:absolute;
+    top:3px;left:3px;
+    width:calc(50% - 3px);
+    height:calc(100% - 6px);
+    border-radius:11px;
+    background:var(--surface-3);
+    transition:transform .22s cubic-bezier(.4,0,.2,1);
+    pointer-events:none;
+  }
+  .app-tabs[data-index="1"] .app-tabs-thumb{
+    transform:translateX(100%);
+  }
+  .app-tab{
+    position:relative;z-index:1;
+    appearance:none;border:0;background:transparent;
+    color:var(--text-3);
+    font-family:inherit;font-size:14px;font-weight:500;
+    letter-spacing:.04em;
+    padding:0 6px;border-radius:11px;cursor:pointer;
+    transition:color .2s;
+    -webkit-tap-highlight-color:transparent;
+    flex:1 1 0;min-width:0;
+    display:flex;align-items:center;justify-content:center;gap:7px;
+  }
+  .app-tab.active{ color:var(--text) }
+  .app-tab svg{
+    width:17px;height:17px;flex:none;
+    fill:none;stroke:currentColor;
+    stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;
+  }
+
+  /* 页面容器 */
+  .page{display:none;flex-direction:column;flex:1;min-height:0}
+  .page.active{display:flex}
+
+  /* 切换页时的显示差异 */
+  body[data-page="metro"] .mic{display:none}
+  body[data-page="metro"] .setting-row:not(#appRow){display:none}
+
+  /* ══════════════════════════════════════════════════════
+     节拍器
+     ══════════════════════════════════════════════════════ */
+  .metro-wrap{
+    display:flex;flex-direction:column;flex:1;
+    min-height:0;
+    /* 底部留白：让拍点落在 624、音量条落在 696（与调音页对齐）。
+       末行提示占掉下方 37px，所以这里的 padding 相应减小 ——
+       两页的内容底部边界便落在同一位置，切换时不再跳动。 */
+    padding-bottom:12px;
+  }
+
+  /* ── 顶部：拍号选择器（居中）── */
+  .metro-top{
+    display:flex;justify-content:center;
+    flex:none;margin-bottom:0;
+  }
+  .meter-btn{
+    appearance:none;border:1px solid var(--border-2);
+    background:var(--surface-2);
+    color:var(--text);
+    font-family:inherit;font-size:14px;font-weight:500;
+    letter-spacing:.04em;
+    padding:12px 14px 12px 16px;border-radius:10px;
+    cursor:pointer;
+    display:flex;align-items:center;gap:7px;
+    transition:background .18s, border-color .18s;
+    -webkit-tap-highlight-color:transparent;
+    font-variant-numeric:tabular-nums;
+  }
+  .meter-btn:active{ background:var(--surface-3) }
+  .meter-btn .chev{
+    width:9px;height:9px;flex:none;
+    opacity:.55;
+  }
+  .meter-btn .chev path{
+    stroke:currentColor;stroke-width:2;
+    fill:none;stroke-linecap:round;stroke-linejoin:round;
+  }
+
+  /* ── 圆环调速区 ── */
+  .metro-ring-area{
+    --ring-max:310px;          /* 圆环直径上限（小屏断点会调低） */
+    flex:1;
+    /* 高度封顶：屏幕很高时不再无限拉伸。
+       否则圆环区会吸走全部剩余空间，把拍点/音量条/提示推到屏幕最底，
+       而调音页的元素是堆在顶部的 —— 两页底部差几十像素，切页就会跳。
+       463px 是设计基准屏（780）下这一区的自然高度；
+       446px 是校准后的值：使圆环圆心落在 390、拍点中心落在 624，
+       与调音页的弧圆心、音量条中心逐轴重合。 */
+    max-height:446px;
+    display:flex;align-items:center;justify-content:center;
+    min-height:0;
+    position:relative;
+    overflow:hidden;
+    /* 让圆环圆心落在 390，与调音页的弧圆心对齐 */
+    padding-top:25px;
+  }
+  /* 圆环尺寸由 JS（syncRingSize）按可用空间算出，写进 --ring-size。
+     这里必须给「固定」的宽高 —— 不能让尺寸由内容撑开，
+     否则会形成「宽度→字号→数字宽度→宽度」的塌缩循环。 */
+  .metro-ring{
+    position:relative;
+    width:var(--ring-size, 260px);
+    height:var(--ring-size, 260px);
+    flex:none;
+    display:flex;align-items:center;justify-content:center;
+    touch-action:none;          /* 拖动时不要触发页面滚动 */
+    cursor:grab;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .metro-ring:active{ cursor:grabbing }
+  .metro-ring svg{
+    position:absolute;inset:0;width:100%;height:100%;
+    overflow:visible;
+  }
+
+  /* 底圈：暗色轨道 */
+  .ring-track{
+    fill:none;
+    stroke:var(--surface-3);
+    stroke-width:2;
+    stroke-linecap:round;
+  }
+  /* 进度弧：显示当前 BPM 在范围内的位置 */
+  .ring-progress{
+    fill:none;
+    stroke:var(--accent);
+    stroke-width:3;
+    stroke-linecap:round;
+    opacity:.5;
+    transition:stroke-dashoffset .1s linear;
+  }
+  /* 脉冲环：每拍扩散 */
+  .pulse-ring{
+    fill:none;
+    stroke:var(--accent);
+    stroke-width:1.5;
+    opacity:0;
+    transform-box:fill-box;
+    transform-origin:center;
+  }
+  .pulse-ring.beat{
+    animation:metroPulse .44s cubic-bezier(.22,.61,.36,1);
+  }
+  @keyframes metroPulse{
+    0%   { opacity:.7; transform:scale(.68) }
+    100% { opacity:0;  transform:scale(1.02) }
+  }
+
+  /* ── 圆心：数字 + 术语 ──
+     数字约占圆环直径的 1/3 */
+  .ring-center{
+    position:relative;z-index:1;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    width:80%;                  /* 限制在圆内 */
+    pointer-events:none;        /* 空白处让拖动/点击穿透到圆环 */
+  }
+
+  /* 数字：占圆环直径的 1/3 以上，可点击输入 */
+  /* 字号跟着圆环实际大小缩放 —— 这样"数字约占圆环 1/3"在任何屏幕上
+     都成立。写死像素的话，小屏圆环被压小、字不变，就是"圈小字大"。
+     内边距和圆角用 em，自动随字号等比缩放。 */
+  .ring-bpm{
+    pointer-events:auto;
+    appearance:none;border:0;background:transparent;
+    font-family:inherit;
+    font-size:calc(var(--ring-size, 310px) * .339);
+    font-weight:300;
+    line-height:.92;
+    color:var(--text);
+    letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+    padding:.057em .152em;
+    border-radius:.152em;
+    cursor:text;
+    transition:color .2s, background .16s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .ring-bpm:active{ background:var(--surface-2) }
+  .ring-bpm.hidden{ display:none }
+  /* 播放中：数字变主色 */
+  .ring-bpm.playing{ color:var(--accent) }
+
+  /* 输入框：尺寸跟数字一致，避免跳动。
+     宽度用 100%：自动跟随圆环大小，不会在大屏太宽、小屏溢出 */
+  .ring-bpm-input{
+    display:none;
+    pointer-events:auto;
+    font-family:inherit;
+    font-size:calc(var(--ring-size, 310px) * .339);
+    font-weight:300;
+    line-height:.92;
+    color:var(--accent);
+    background:var(--surface-2);
+    border:2px solid var(--accent);
+    border-radius:.152em;
+    width:100%;
+    box-sizing:border-box;
+    text-align:center;
+    padding:.057em .038em;
+    outline:none;
+    letter-spacing:-.03em;
+    font-variant-numeric:tabular-nums;
+    -webkit-appearance:none;
+  }
+  .ring-bpm-input.show{ display:block }
+
+  .ring-term{
+    font-size:clamp(11px, calc(var(--ring-size, 310px) * .042), 14px);
+    color:var(--text-3);
+    letter-spacing:.08em;
+    margin-top:calc(var(--ring-size, 310px) * .026);
+    min-height:18px;
+    transition:color .2s;
+  }
+  /* 播放中术语也跟着亮一点 */
+  .ring-center.playing .ring-term{ color:var(--accent); opacity:.75 }
+
+  /* ── 拍点指示 ──
+     亮起的点带光晕：亮起瞬间点亮（.04s），熄灭时慢慢消退（.22s），
+     形成「闪一下」的观感。光晕颜色跟随主题色（--accent-rgb）。 */
+  .beat-dots{
+    display:flex;justify-content:center;align-items:center;
+    gap:16px;flex:none;
+    height:30px;
+    margin-top:4px;
+  }
+  .beat-dot{
+    width:14px;height:14px;border-radius:50%;
+    background:var(--surface-3);
+    transition:background .22s ease-out, transform .22s ease-out,
+               box-shadow .22s ease-out;
+  }
+  .beat-dot.accent{ width:16px;height:16px }
+  .beat-dot.on{
+    background:var(--success);
+    transform:scale(1.25);
+    box-shadow:0 0 7px 1px rgba(var(--success-rgb), .8),
+               0 0 18px 5px rgba(var(--success-rgb), .3);
+    transition:background .04s, transform .04s, box-shadow .04s;
+  }
+  /* 拍子多的时候（比如 12/8）缩小一点，避免挤成一片 */
+  .beat-dots.dense{ gap:10px }
+  .beat-dots.dense .beat-dot{ width:10px;height:10px }
+  .beat-dots.dense .beat-dot.accent{ width:12px;height:12px }
+  .beat-dots.dense .beat-dot.on{
+    transform:scale(1.35);
+    box-shadow:0 0 6px 1px rgba(var(--success-rgb), .75),
+               0 0 14px 3px rgba(var(--success-rgb), .26);
+  }
+
+  /* ── 音量条 ──
+     左小喇叭 —— 滑杆 —— 右大喇叭，照抄常见播放器的心智模型。
+     用原生 range：触摸、键盘、无障碍都免费拿到，样式自己覆写。 */
+  /* ── 音量条：16 格分段刻度 ──
+     格子的高度（20px）跟拍点直径（14-16px）同一个量级，
+     看起来是一套东西。拖动连续生效，不卡格。 */
+  .vol-row{
+    display:flex;align-items:center;justify-content:center;
+    flex:none;
+    width:min(84%, 312px);
+    margin:43px auto 0;
+    padding:0 2px;
+  }
+  .vol-seg{
+    display:flex;align-items:center;gap:8px;
+    width:100%;height:26px;
+    cursor:pointer;touch-action:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .vol-seg i{
+    flex:1 1 0;min-width:0;
+    height:20px;border-radius:6px;
+    background:var(--surface-3);
+    transition:background .12s ease-out;
+  }
+  .vol-seg i.on{ background:var(--accent) }
+  .vol-seg:focus-visible{ outline:2px solid var(--accent);outline-offset:4px }
+
+  /* 节拍的提示行：位置刻意对齐调音页那一行，切换时底部不跳 */
+  .metro-hint{ margin-top:21px }
+
+  /* ══════════════════════════════════════════════════════
+     拍号选择面板（底部弹出）
+     ══════════════════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════
+     拍号选择：顶部下拉抽屉 + 双列滚轮
+     分子 / 分母各一列，上下滑动选择，中间那条即选中。
+     ══════════════════════════════════════════════════════ */
+  .meter-sheet{
+    position:fixed;inset:0;
+    z-index:80;
+    display:flex;align-items:flex-start;justify-content:center;
+    background:rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;
+    transition:opacity .22s;
+  }
+  .meter-sheet.open{
+    opacity:1;pointer-events:auto;
+  }
+  .meter-sheet-body{
+    width:100%;max-width:460px;
+    background:var(--surface);
+    border-bottom-left-radius:20px;
+    border-bottom-right-radius:20px;
+    padding:calc(16px + env(safe-area-inset-top)) 20px 20px;
+    transform:translateY(-20px);
+    transition:transform .24s cubic-bezier(.4,0,.2,1);
+    border:1px solid var(--border-2);
+    border-top:0;
+  }
+  .meter-sheet.open .meter-sheet-body{
+    transform:translateY(0);
+  }
+  .meter-sheet-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:6px;
+  }
+  .meter-sheet-title{
+    font-size:14px;font-weight:500;color:var(--text);
+    letter-spacing:.08em;
+  }
+  .meter-sheet-close{
+    appearance:none;border:0;background:transparent;
+    color:var(--accent);
+    font-family:inherit;font-size:14px;font-weight:500;
+    padding:6px 4px;cursor:pointer;
+    letter-spacing:.04em;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  /* ── 双列滚轮 ── */
+  .meter-wheels{
+    position:relative;
+    display:flex;
+    height:236px;              /* 5 行 × 46 + 留白 */
+    margin-top:4px;
+  }
+  /* 中间的选中高亮条 */
+  .meter-wheels::before{
+    content:'';
+    position:absolute;
+    left:6px;right:6px;top:50%;
+    height:52px;
+    transform:translateY(-50%);
+    border-radius:12px;
+    background:var(--surface-2);
+    border:1px solid var(--border-2);
+    pointer-events:none;
+  }
+  .meter-wheel{
+    position:relative;
+    flex:1 1 0;min-width:0;
+    height:100%;
+    touch-action:none;
+    cursor:grab;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-mask-image:linear-gradient(to bottom,
+      transparent, #000 26%, #000 74%, transparent);
+            mask-image:linear-gradient(to bottom,
+      transparent, #000 26%, #000 74%, transparent);
+  }
+  .meter-wheel:active{ cursor:grabbing }
+  .meter-wheel-item{
+    position:absolute;
+    left:0;right:0;top:50%;
+    height:46px;margin-top:-23px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;font-weight:500;
+    font-variant-numeric:tabular-nums;
+    color:var(--text-3);
+    transition:color .16s, font-size .16s, opacity .16s;
+    pointer-events:none;
+  }
+  .meter-wheel-item.near{ color:var(--text-2) }
+  .meter-wheel-item.sel{ color:var(--text);font-size:25px }
+  .meter-wheel-item.far{ opacity:.45 }
+
+  /* ── 小屏适配 ──
+     数字保持占圆环直径的 1/3 左右；
+     极矮屏再压一级，避免内容和圆环挤在一起。 */
+  @media (max-height: 780px){
+    .metro-ring-area{ --ring-max:265px }
+    .ring-term{ font-size:12px;margin-top:6px }
+    /* 拍号与拍点不再缩小：一旦这里变化，节拍页的内容总高就与调音页
+       不再相等，底部会差出一截，切页时看得到跳。矮屏空间不足时
+       由圆环区（flex:1）自动收缩，不影响这两处。 */
+  }
+  @media (max-height: 660px){
+    .metro-ring-area{ --ring-max:210px }
+    .ring-term{ font-size:11px;margin-top:4px;min-height:15px }
+    .ring-center{ width:74% }
+    .vol-row{ margin-top:5px }
+  }
+  @media (max-height: 560px){
+    .metro-ring-area{ --ring-max:160px }
+    .ring-term{ font-size:10px;margin-top:3px;min-height:13px }
+    .ring-center{ width:72% }
+    .vol-row{ margin-top:4px }
+  }
+  /* 极矮屏（横屏、老设备）：一切从简 */
+  @media (max-height: 430px){
+    .metro-wrap{ gap:6px }
+    .metro-top{ margin-bottom:3px }
+    .meter-btn{ font-size:12px;padding:5px 9px 5px 11px }
+    .metro-ring-area{ --ring-max:132px }
+    .ring-term{ font-size:9px;margin-top:2px;min-height:12px }
+    .ring-center{ width:70% }
+    .beat-dots{ height:22px;gap:9px;margin-top:2px }
+    .beat-dot{ width:10px;height:10px }
+    .beat-dot.accent{ width:12px;height:12px }
+    .vol-row{ margin-top:3px }
+    .vol-icon{ width:15px;height:15px }
+  }
+  /* /METRO-BLOCK:CSS */
 </style>
 <!-- ===== PWA / 手机 App（由 tools/build_web.py 自动插入） ===== -->
 <link rel="manifest" href="/manifest.webmanifest">
@@ -487,22 +999,36 @@
   <div class="header">
     <div class="brand">
       <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
-        <defs>
-          <linearGradient id="brandGrad" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#e8c197"/>
-            <stop offset="100%" stop-color="#d4a574"/>
-          </linearGradient>
-        </defs>
-        <circle cx="16" cy="16" r="14.25" stroke="url(#brandGrad)" stroke-width="1.5" fill="none"/>
-        <rect x="9.5"  y="15" width="2.2" height="6.5" rx="1.1" fill="url(#brandGrad)" opacity=".5"/>
-        <rect x="14.9" y="10.5" width="2.2" height="11" rx="1.1" fill="url(#brandGrad)"/>
-        <rect x="20.3" y="13" width="2.2" height="8.5" rx="1.1" fill="url(#brandGrad)" opacity=".7"/>
+        <circle cx="16" cy="16" r="14.25" stroke="var(--gold)" stroke-width="1.5" fill="none"/>
+        <ellipse cx="12.6" cy="20.4" rx="3.1" ry="2.6" stroke="var(--gold)" stroke-width="1.7" fill="none"/>
+        <path d="M15.7 20.4 V9.8 L23 11.6" stroke="var(--gold)" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>
       <div class="brand-text">
         <div class="brand-cn">始信音乐</div>
         <div class="brand-en">SHIXIN MUSIC</div>
       </div>
     </div>
+<!-- METRO-BLOCK:HEADER -->
+    <!-- 调音 / 节拍 切换（由 tools/add_metronome.py 插入） -->
+    <div class="app-tabs" id="appTabs" role="tablist">
+      <span class="app-tabs-thumb" id="tabThumb"></span>
+      <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 8.5v7M12 5.5v13M18 9.5v5"/>
+        </svg>
+        <span>调音</span>
+      </button>
+      <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 19.5v-12l10 1.6v10.4"/>
+          <path d="M6.2 4.6h11.6"/>
+          <path d="M15.4 12.2l3.2 3.4"/>
+        </svg>
+        <span>节拍</span>
+      </button>
+    </div>
+    <!-- /METRO-BLOCK:HEADER -->
 
     <div class="header-right">
       <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
@@ -513,31 +1039,37 @@
         </svg>
       </button>
     </div>
-  </div>
 
-  <div class="settings-panel" id="settingsPanel">
-    <div class="settings-inner">
-      <div class="setting-row">
-        <span class="setting-label">标准音高</span>
-        <div class="a4-control">
-          <button class="a4-btn" id="a4Down" type="button">−</button>
-          <span class="a4-value" id="a4Value">440<span class="unit">Hz</span></span>
-          <button class="a4-btn" id="a4Up" type="button">+</button>
+    <!-- 设置面板：以浮层挂在这里，不占文档流。
+         它曾经是 .header 的兄弟节点、以内联方式撑开 ——
+         展开时把整页往下推 179px，调音页的「开始调音」按钮
+         直接被推到屏幕外（780 屏上从 695 掉到 892）。 -->
+    <div class="settings-panel" id="settingsPanel">
+      <div class="settings-inner">
+        <div class="setting-row">
+          <span class="setting-label">标准音高</span>
+          <div class="a4-control">
+            <button class="a4-btn" id="a4Down" type="button">−</button>
+            <span class="a4-value" id="a4Value">440<span class="unit">Hz</span></span>
+            <button class="a4-btn" id="a4Up" type="button">+</button>
+          </div>
         </div>
-      </div>
-      <div class="setting-row">
-        <span class="setting-label">视图</span>
-        <div class="view-toggle" id="viewToggle">
-          <button class="view-btn active" data-view="needle">指针</button>
-          <button class="view-btn" data-view="strobe">频闪</button>
+        <div class="setting-row">
+          <span class="setting-label">视图</span>
+          <div class="view-toggle" id="viewToggle">
+            <button class="view-btn active" data-view="needle">指针</button>
+            <button class="view-btn" data-view="strobe">频闪</button>
+          </div>
         </div>
-      </div>
-      <div class="setting-row" id="appRow">
-        <span class="setting-label">手机 App</span>
-        <a class="app-install-link" href="/download/">下载安装</a>
+        <div class="setting-row" id="appRow">
+          <span class="setting-label">手机 App</span>
+          <a class="app-install-link" href="/download/">下载安装</a>
+        </div>
       </div>
     </div>
   </div>
+
+  <div class="page active" id="pageTuner">
 
   <div class="mode-tabs" id="modeTabs">
     <button class="mode-tab active" data-mode="guitar">吉他</button>
@@ -549,20 +1081,20 @@
   <div class="center">
     <div class="gauge-block" id="gaugeBlock">
       <svg class="gauge-svg" viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
-        <!-- 主弧 -->
+        <!-- 主弧：完整半圆（-90° → +90°） -->
         <path class="gauge-arc"
-              d="M 101 111 A 140 140 0 0 1 299 111"
+              d="M 28 208 A 172 172 0 0 1 372 208"
               fill="none" stroke="rgba(240,235,227,.10)"
               stroke-width="1.5" stroke-linecap="round"/>
-        <!-- 准音区 -->
-        <path d="M 189 70.43 A 140 140 0 0 1 211 70.43"
-              fill="none" stroke="rgba(143,191,122,.5)"
+        <!-- 准音区（±5 音分） -->
+        <path d="M 173.1 38.12 A 172 172 0 0 1 226.9 38.12"
+              fill="none" stroke="rgba(var(--success-rgb),.5)"
               stroke-width="2.5" stroke-linecap="round"/>
         <!-- 刻度 -->
         <g id="ticks"></g>
         <!-- 滑动圆点 -->
-        <circle id="needleDot" cx="200" cy="70" r="6"
-                fill="#d4a574" stroke="none"/>
+        <circle id="needleDot" cx="200" cy="36" r="6"
+                style="fill:var(--accent)" stroke="none"/>
       </svg>
 
       <!-- 音名叠层 -->
@@ -576,11 +1108,6 @@
 
     <div class="strobe-view" id="strobeView">
       <canvas id="strobeCanvas"></canvas>
-    </div>
-
-    <div class="level-row">
-      <span class="level-label">音量</span>
-      <div class="level-bar"><div class="level-fill" id="levelFill"></div></div>
     </div>
   </div>
 
@@ -596,12 +1123,122 @@
     </div>
   </div>
 
+  <!-- 音量条：在弦按钮/琴键下方，与节拍页拍点同轴 -->
+  <div class="level-row">
+    <span class="level-label">音量</span>
+    <div class="level-bar"><div class="level-fill" id="levelFill"></div></div>
+  </div>
+
   <button class="start" id="startBtn">开始调音</button>
   <div class="hint" id="hintText">拨响琴弦即可 · 点琴弦按钮可听标准音</div>
+
+  </div><!-- /pageTuner -->
+
+
+  <!-- METRO-BLOCK:PAGES -->
+  <!-- ══════════════════════════════════════════════════════
+       节拍器页面（由 tools/add_metronome.py 插入）
+       ══════════════════════════════════════════════════════ -->
+  <div class="page" id="pageMetro">
+    <div class="metro-wrap">
+
+      <!-- 拍号选择（右上） -->
+      <div class="metro-top">
+        <button class="meter-btn" id="meterBtn" type="button">
+          <span id="meterLabel">4/4</span>
+          <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M2 4 L5 7 L8 4"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 圆环：拖动调速 -->
+      <div class="metro-ring-area">
+        <div class="metro-ring" id="metroRing">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <!-- 底圈 -->
+            <circle class="ring-track" cx="100" cy="100" r="90"/>
+            <!-- 速度进度弧 -->
+            <circle class="ring-progress" id="ringProgress"
+                    cx="100" cy="100" r="90"
+                    transform="rotate(135 100 100)"/>
+            <!-- 每拍脉冲 -->
+            <circle class="pulse-ring" id="pulseRing"
+                    cx="100" cy="100" r="90"/>
+          </svg>
+
+          <div class="ring-center" id="ringCenter">
+            <button class="ring-bpm" id="bpmValue" type="button"
+                    aria-label="点一下可输入速度">120</button>
+            <input class="ring-bpm-input" id="bpmInput"
+                   type="text" inputmode="numeric"
+                   maxlength="3" autocomplete="off"
+                   aria-label="输入速度">
+            <div class="ring-term" id="bpmTerm">Moderato</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 拍点 -->
+      <div class="beat-dots" id="beatDots"></div>
+
+      <!-- 音量：16 格分段刻度 -->
+      <div class="vol-row">
+        <div class="vol-seg" id="volSeg" role="slider" tabindex="0"
+             aria-label="节拍器音量"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div>
+      </div>
+
+      <!-- 操作提示：与调音页的提示行对齐，两页底部边界一致 -->
+      <div class="hint metro-hint" id="metroHint">点圆环开始 · 拖动圆环调速</div>
+
+    </div>
+  </div>
+
+  <!-- 拍号选择抽屉（顶部下拉 + 双列滚轮） -->
+  <div class="meter-sheet" id="meterSheet">
+    <div class="meter-sheet-body">
+      <div class="meter-sheet-head">
+        <span class="meter-sheet-title">拍号</span>
+        <button class="meter-sheet-close" id="meterClose" type="button">完成</button>
+      </div>
+      <div class="meter-wheels">
+        <div class="meter-wheel" id="numWheel" role="slider" tabindex="0"
+             aria-label="拍号分子"></div>
+        <div class="meter-wheel" id="denWheel" role="slider" tabindex="0"
+             aria-label="拍号分母"></div>
+      </div>
+    </div>
+  </div>
+  <!-- /METRO-BLOCK:PAGES -->
 
 </div>
 
 <script>
+
+  /* ===== 读取主题色（由 tools/fix_theme.py 自动插入）=====
+     画布（canvas）读不到 CSS 变量，只能在运行时取出来。
+     只读一次就缓存 —— getComputedStyle 很慢，不能放在动画循环里。 */
+  let __themeCache = null;
+  function theme(){
+    if (__themeCache) return __themeCache;
+    let cs = null;
+    try { cs = getComputedStyle(document.documentElement); } catch(e){}
+    const get = (name, fallback) => {
+      if (!cs) return fallback;
+      const v = cs.getPropertyValue(name);
+      return (v && v.trim()) || fallback;
+    };
+    __themeCache = {
+      accent:     get('--accent', '#a0a0a0'),
+      accentRgb:  get('--accent-rgb', '160,160,160'),
+      successRgb: get('--success-rgb', '127,200,127'),
+      surface2:   get('--surface-2', '#1f1f1f'),
+      text:       get('--text', '#f0f0f0')
+    };
+    return __themeCache;
+  }
+
 (function(){
   'use strict';
 
@@ -656,8 +1293,9 @@
   const STROBE_PERIOD  = 28;
   const STROBE_STRIPE  = 12;
 
-  /* 表盘几何 */
-  const G_CX = 200, G_CY = 210, G_R = 140;
+  /* 表盘几何：完整半圆（-90° → +90°） */
+  const G_CX = 200, G_CY = 208, G_R = 172;
+  const G_DEG_PER_CENT = 1.8;   /* 1 音分 = 1.8°（满量程 ±50 音分 = ±90°） */
 
   const appEl       = document.getElementById('app');
   const needleDot   = document.getElementById('needleDot');
@@ -728,14 +1366,29 @@
     settingsBtn.classList.toggle('active', open);
   });
 
-  /* 画刻度 */
+  /* 点面板和齿轮以外的地方就收起。
+     面板现在是从 header 下弹出的浮层，会盖住乐器行；
+     不主动收起的话，用户得再点一次齿轮才能看到被挡住的内容。 */
+  document.addEventListener('click', (e) => {
+    if (!settingsPanel.classList.contains('open')) return;
+    if (e.target.closest('#settingsPanel') || e.target.closest('#settingsBtn')) return;
+    settingsPanel.classList.remove('open');
+    settingsBtn.classList.remove('active');
+  });
+
+  /* 画刻度
+     半圆有 180° 空间，所以分三级：
+       0       长绿（准音基准）
+       ±25     中长
+       其他     短（每 10 音分一格） */
   (function buildTicks(){
     const NS = 'http://www.w3.org/2000/svg';
-    [-50, -25, 0, 25, 50].forEach(c => {
-      const deg = c * 0.9;
+    for (let c = -50; c <= 50; c += 10){
+      const deg = c * G_DEG_PER_CENT;
       const rad = deg * Math.PI / 180;
       const isMain = (c === 0);
-      const rIn  = G_R - (isMain ? 16 : 8);
+      const isMid  = (Math.abs(c) === 25);
+      const rIn  = G_R - (isMain ? 18 : (isMid ? 13 : 7));
       const rOut = G_R;
       const x1 = G_CX + rIn * Math.sin(rad);
       const y1 = G_CY - rIn * Math.cos(rad);
@@ -746,11 +1399,11 @@
       line.setAttribute('y1', y1.toFixed(2));
       line.setAttribute('x2', x2.toFixed(2));
       line.setAttribute('y2', y2.toFixed(2));
-      line.setAttribute('stroke', isMain ? 'rgba(143,191,122,.7)' : 'rgba(240,235,227,.2)');
-      line.setAttribute('stroke-width', isMain ? '2' : '1.5');
+      line.setAttribute('stroke', isMain ? 'rgba(var(--success-rgb),.8)' : 'rgba(240,235,227,.2)');
+      line.setAttribute('stroke-width', isMain ? '2' : (isMid ? '1.6' : '1.2'));
       line.setAttribute('stroke-linecap', 'round');
       ticksEl.appendChild(line);
-    });
+    }
   })();
 
   let stringBtns = [];
@@ -773,19 +1426,44 @@
   }
 
   let pianoKeyBtns = [];
+  /* 建钢琴键盘：真钢琴布局
+     白键 C D E F G A B 平铺；黑键 C# D# F# G# A# 压在交界处。
+     pianoKeyBtns 按 pc（0-11）索引 —— updateButtons 依赖这个顺序。 */
   function buildPianoKeys(){
     pianoKeysEl.innerHTML = '';
-    pianoKeyBtns = [];
-    NOTE_NAMES.forEach((name, pc) => {
-      const isBlack = name.includes('#');
+    pianoKeyBtns = new Array(12).fill(null);
+
+    const whiteBox = document.createElement('div');
+    whiteBox.className = 'pk-white';
+    const blackBox = document.createElement('div');
+    blackBox.className = 'pk-black';
+
+    // 白键：7 个
+    [0, 2, 4, 5, 7, 9, 11].forEach(pc => {
       const b = document.createElement('button');
-      b.className = 'pkey' + (isBlack ? ' black' : '');
+      b.className = 'pkey';
       b.type = 'button';
-      b.textContent = name;
+      b.textContent = NOTE_NAMES[pc];
       b.addEventListener('click', () => onPianoKeyClick(pc));
-      pianoKeysEl.appendChild(b);
-      pianoKeyBtns.push(b);
+      whiteBox.appendChild(b);
+      pianoKeyBtns[pc] = b;
     });
+
+    // 黑键：5 个。at = 插在第几个白键之后（1 → C|D 之间）
+    [[1, 1], [3, 2], [6, 4], [8, 5], [10, 6]].forEach(pair => {
+      const pc = pair[0], at = pair[1];
+      const b = document.createElement('button');
+      b.className = 'pkey black';
+      b.type = 'button';
+      b.textContent = NOTE_NAMES[pc];
+      b.style.left = (at * 100 / 7) + '%';
+      b.addEventListener('click', () => onPianoKeyClick(pc));
+      blackBox.appendChild(b);
+      pianoKeyBtns[pc] = b;
+    });
+
+    pianoKeysEl.appendChild(whiteBox);
+    pianoKeysEl.appendChild(blackBox);
   }
 
   function updateButtons(){
@@ -916,13 +1594,27 @@
     await playReference(getFreq(midi));
   }
 
+  /* 给可能卡住的异步操作加超时。
+     浏览器的 getUserMedia / AudioContext.resume 在某些情况下（权限弹窗
+     被忽略、蓝牙耳机切换、系统音频服务异常）会一直 pending 不 resolve，
+     导致界面停在「启动中」不动 —— 加上超时就变成可以理解的报错。 */
+  function withTimeout(promise, ms, label){
+    return Promise.race([
+      promise,
+      new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error(label + '超时')); }, ms);
+      })
+    ]);
+  }
+
   async function ensureAudio(){
     if (!audioCtx){
       const AC = window.AudioContext || window.webkitAudioContext;
       audioCtx = new AC();
     }
     if (audioCtx.state === 'suspended'){
-      try { await audioCtx.resume(); } catch(e){}
+      // 只等 3 秒：拖太久就直接往下走，getUserMedia 可能照样能成功
+      try { await withTimeout(audioCtx.resume(), 3000, '音频'); } catch(e){}
     }
     return audioCtx;
   }
@@ -1042,7 +1734,7 @@
 
   function updateDisplay(displayId, freq, cents){
     const clamped = Math.max(-50, Math.min(50, cents));
-    needleTarget = clamped * 0.9;
+    needleTarget = clamped * G_DEG_PER_CENT;
     const absC = Math.abs(cents);
     const ok = absC <= IN_TUNE;
     appEl.classList.toggle('tuning-ok', ok);
@@ -1104,14 +1796,16 @@
     if (W === 0 || H === 0) return;
     strobeCtx.setTransform(1, 0, 0, 1, 0, 0);
     strobeCtx.clearRect(0, 0, W, H);
-    strobeCtx.fillStyle = '#211f1b';
+    strobeCtx.fillStyle = theme().surface2;
     strobeCtx.fillRect(0, 0, W, H);
     const dpr = window.devicePixelRatio || 1;
     const inTune = Math.abs(smoothCents) < 1.2;
     const period = STROBE_PERIOD * dpr;
     const stripe = STROBE_STRIPE * dpr;
     const offset = ((strobePhase * dpr) % period + period) % period;
-    strobeCtx.fillStyle = inTune ? 'rgba(143,191,122,.55)' : 'rgba(212,165,116,.42)';
+    strobeCtx.fillStyle = inTune
+        ? `rgba(${theme().successRgb},.55)`
+        : `rgba(${theme().accentRgb},.42)`;
     for (let x = -period - offset; x < W + period; x += period){
       strobeCtx.fillRect(x, 0, stripe, H);
     }
@@ -1162,9 +1856,20 @@
         throw new Error('浏览器不支持麦克风');
       }
       const ctx = await ensureAudio();
-      const stream = await navigator.mediaDevices.getUserMedia({
+      // 权限弹窗被忽略 / 麦克风被占 / 系统音频异常时，这个 Promise 会一直挂着。
+      // 等 10 秒还没结果就报错，并在后台把迟到拿到的流关掉（不然麦克风被白占）。
+      const gum = navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 }
       });
+      let stream;
+      try {
+        stream = await withTimeout(gum, 10000, '麦克风');
+      } catch (e){
+        gum.then(function(s){
+          try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
+        }).catch(function(){});
+        throw e;
+      }
       const src = ctx.createMediaStreamSource(stream);
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass'; hp.frequency.value = 55; hp.Q.value = 0.6;
@@ -1197,6 +1902,11 @@
       if (err && err.name === 'NotAllowedError') msg = '麦克风权限被拒绝';
       else if (err && err.name === 'NotFoundError') msg = '未找到麦克风设备';
       else if (err && err.name === 'NotReadableError') msg = '麦克风被其他程序占用';
+      else if (err && /超时/.test(err.message || '')) {
+        msg = err.message + '\n\n' +
+              '可能是浏览器把麦克风权限拦住了。\n' +
+              '点地址栏左边的图标 → 把「麦克风」改成「允许」，然后再试一次。';
+      }
       else if (err && err.message) msg = err.message;
       startBtn.disabled = false;
       startBtn.textContent = '开始调音';
@@ -1262,5 +1972,919 @@
   }
 })();
 </script>
+
+<!-- METRONOME-JS-INSERTED -->
+<script>
+/* ════════════════════════════════════════════════════════════
+   节拍器（由 tools/add_metronome_js.py 插入）
+
+     1. 核心逻辑 —— 重拍计算、速度术语、范围常量
+     2. 音频引擎 —— Web Audio 预调度，保证节拍稳定
+     3. 界面控制 —— 胶囊切换、拍号面板、圆环拖动、播放按钮
+   ════════════════════════════════════════════════════════════ */
+
+/* ─────────── 1. 核心逻辑 ─────────── */
+/* ══════════════════════════════════════════════════════════════
+   节拍器核心逻辑（纯计算，不碰 DOM / 音频）
+
+   单独放在这里是为了能脱离浏览器测试 ——
+   节拍器的重拍安排和速度术语都容易写错，需要能验证。
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 速度术语 ──
+   按意大利传统区间划分，upTo 是上界（含）。
+   中英对照方便教学时对应。 */
+const TEMPO_TERMS = [
+  { upTo: 40,       it: 'Grave',       cn: '庄板'   },
+  { upTo: 60,       it: 'Largo',       cn: '广板'   },
+  { upTo: 66,       it: 'Larghetto',   cn: '小广板' },
+  { upTo: 76,       it: 'Adagio',      cn: '柔板'   },
+  { upTo: 108,      it: 'Andante',     cn: '行板'   },
+  { upTo: 120,      it: 'Moderato',    cn: '中板'   },
+  { upTo: 168,      it: 'Allegro',     cn: '快板'   },
+  { upTo: 200,      it: 'Presto',      cn: '急板'   },
+  { upTo: Infinity, it: 'Prestissimo', cn: '最急板' },
+];
+
+function tempoTerm(bpm) {
+  for (const t of TEMPO_TERMS) {
+    if (bpm <= t.upTo) return t;
+  }
+  return TEMPO_TERMS[TEMPO_TERMS.length - 1];
+}
+
+/* ── 重拍安排 ──
+   返回数组，每项取值：
+     2 = 重拍（每小节第一拍）
+     1 = 次重拍（分组头）
+     0 = 弱拍
+
+   规则（按先后顺序判断）：
+     1. 分子 ≤ 4          → 只有第一拍重
+     2. 分子是 3 的倍数     → 每三拍一组
+        （6/8、9/8、12/8、6/4、9/4 ……）
+     3. 3/8 特殊处理       → 当作单拍子，不分三组
+     4. 分子是 4 的倍数     → 每四拍一组（12/16、16/16 这类）
+     5. 其它（5、7 等）     → 第一拍重，其余弱
+*/
+function accentPattern(num, den) {
+  const pattern = new Array(num).fill(0);
+  if (num <= 0) return pattern;
+
+  pattern[0] = 2;                       // 第一拍总是重拍
+
+  if (num <= 4) return pattern;         // 单拍子，够简单
+
+  // 复拍子：分子是 3 的倍数（且大于 3）
+  const isCompound = (num % 3 === 0);
+  // 3/8 视为单拍子（三拍等分，不按 3 分组）
+  const shouldGroup = isCompound && !(den === 8 && num === 3);
+
+  if (shouldGroup) {
+    for (let i = 3; i < num; i += 3) {
+      pattern[i] = 1;
+    }
+    return pattern;
+  }
+
+  // 四拍分组：12/16、16/16 这类复拍子
+  if (num % 4 === 0) {
+    for (let i = 4; i < num; i += 4) {
+      pattern[i] = 1;
+    }
+    return pattern;
+  }
+
+  // 其它（5、7、11 ……）：第一拍重，其余弱
+  return pattern;
+}
+
+/* ── 拍号范围 ──
+   分子 2-12，分母 2/4/6/8/12 */
+const NUM_MIN = 2;
+const NUM_MAX = 12;
+const DEN_VALUES = [2, 4, 6, 8, 12];
+
+function clampNum(n) {
+  return Math.max(NUM_MIN, Math.min(NUM_MAX, Math.round(n)));
+}
+
+function stepDen(den, dir) {
+  let i = DEN_VALUES.indexOf(den);
+  if (i < 0) i = 1;                     // 认不出来就当 4/4
+  i = (i + dir + DEN_VALUES.length) % DEN_VALUES.length;
+  return DEN_VALUES[i];
+}
+
+/* ── 常用拍号（下拉里的快捷项）── */
+const METER_PRESETS = [
+  { num: 2, den: 4 },
+  { num: 3, den: 4 },
+  { num: 4, den: 4 },
+  { num: 6, den: 8 },
+  { num: 2, den: 2 },
+];
+
+/* ── BPM 范围 ── */
+const BPM_MIN = 30;
+const BPM_MAX = 250;
+
+function clampBpm(b) {
+  return Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(b)));
+}
+
+/* ── 拖动灵敏度 ──
+   转一圈（360°）大约变化多少 BPM。
+   90 的手感：转 60° 变 15 BPM，转一圈变 90。
+   太小调不动，太大调不准。 */
+const DRAG_BPM_PER_TURN = 90;
+
+/* ─────────── 2. 音频引擎 ─────────── */
+/* ══════════════════════════════════════════════════════════════
+   节拍器音频引擎
+
+   为什么不用 setTimeout 直接发声：
+     setTimeout 的误差会累积（每拍偏几毫秒，一分钟后能差出半拍），
+     而且页面切到后台会被浏览器降频到 1 次/秒，节拍直接乱掉。
+
+   做法：Web Audio 的预调度（look-ahead scheduler）
+     · 每 25ms 醒一次（这个频率够低，不影响性能）
+     · 每次把未来 100ms 内该响的拍子，提前"预约"给音频时钟
+     · 到点由音频硬件精确触发，不依赖 JS 定时精度
+     结果：切后台、页面卡顿，节拍都不会漂。
+   ══════════════════════════════════════════════════════════════ */
+
+const LOOKAHEAD_MS = 25;      // 多久检查一次
+const SCHEDULE_AHEAD = 0.1;   // 提前多少秒预排（秒）
+
+function Metronome() {
+  this.ctx = null;
+
+  this.bpm = 120;
+  this.num = 4;               // 分子
+  this.den = 4;               // 分母
+  this.pattern = [2, 0, 0, 0];  // 重拍安排
+
+  this.playing = false;
+  this.currentBeat = -1;      // 当前拍（用于界面高亮）
+  this.nextNoteTime = 0;      // 下一拍的音频时间
+  this.beatIndex = 0;         // 排到第几拍了
+  this.timerId = null;
+
+  this.onBeat = null;         // 每拍的回调（用于界面闪动）
+
+  // 音量（0-1）
+  this.volume = 0.7;
+}
+
+/* ── 拍间隔（秒）──
+   一拍的长度 = 全音符 ÷ 分母。
+   而全音符 = 4 个四分音符，所以：
+
+     拍长 = (60 / BPM) × (4 / 分母)
+
+   验证：
+     分母 4  → 60/BPM × 1    = 四分音符
+     分母 8  → 60/BPM × 0.5  = 八分音符
+     分母 2  → 60/BPM × 2    = 二分音符
+     分母 6  → 60/BPM × 2/3  = 六分音符
+     分母 12 → 60/BPM × 1/3  = 十二分音符
+*/
+Metronome.prototype.beatDuration = function () {
+  const quarter = 60 / this.bpm;
+  return quarter * (4 / this.den);
+};
+
+/* ── 确保音频上下文 ── */
+Metronome.prototype.ensureCtx = function () {
+  if (!this.ctx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AC();
+  }
+  if (this.ctx.state === 'suspended') {
+    this.ctx.resume();
+  }
+  return this.ctx;
+};
+
+/* ── 合成一声"嗒" ──
+   用正弦波 + 极快衰减，接近木鱼/电子节拍器的听感。
+   重拍：音高更高、更长、更响。
+   次重拍：中间水平。
+   弱拍：最低最轻。
+
+   at  —— 何时发声（音频时间轴）
+   kind —— 2 重拍 / 1 次重拍 / 0 弱拍
+*/
+Metronome.prototype.click = function (at, kind) {
+  const ctx = this.ctx;
+
+  // 音高：重拍高，弱拍低
+  const freq = kind === 2 ? 1760 : (kind === 1 ? 1320 : 1050);
+  // 音量：重拍响
+  const gain = kind === 2 ? 1.0 : (kind === 1 ? 0.72 : 0.52);
+  // 衰减：重拍稍长，让重音更"实"
+  const decay = kind === 2 ? 0.055 : 0.038;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, at);
+  // 轻微下滑，声音更自然（不滑会像纯电子音，偏"硬"）
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.86, at + decay);
+
+  // 音量包络：瞬间起、快速落
+  const peak = gain * this.volume * 0.42;
+  env.gain.setValueAtTime(0, at);
+  env.gain.linearRampToValueAtTime(peak, at + 0.0012);
+  env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+
+  osc.connect(env);
+  env.connect(ctx.destination);
+
+  osc.start(at);
+  osc.stop(at + decay + 0.01);
+
+  // 起音那一瞬加一点噪声，模拟"敲击"的质感。
+  // 纯正弦听起来太"电子"，加噪声后更像木头/鼓。
+  const nLen = Math.floor(ctx.sampleRate * 0.006);
+  if (nLen > 0) {
+    const buf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < nLen; i++) {
+      // 越往后越弱
+      data[i] = (Math.random() * 2 - 1) * (1 - i / nLen) * 0.5;
+    }
+    const noise = ctx.createBufferSource();
+    const nEnv = ctx.createGain();
+    const nFilter = ctx.createBiquadFilter();
+
+    noise.buffer = buf;
+    // 带通滤波，让噪声集中在敲击频段，不刺耳
+    nFilter.type = 'bandpass';
+    nFilter.frequency.value = freq * 0.55;
+    nFilter.Q.value = 1.2;
+
+    nEnv.gain.setValueAtTime(peak * 0.5, at);
+    nEnv.gain.exponentialRampToValueAtTime(0.0001, at + 0.012);
+
+    noise.connect(nFilter);
+    nFilter.connect(nEnv);
+    nEnv.connect(ctx.destination);
+
+    noise.start(at);
+    noise.stop(at + 0.02);
+  }
+};
+
+/* ── 调度循环 ──
+   把 SCHEDULE_AHEAD 秒内该响的拍子全部预约出去。 */
+Metronome.prototype.scheduler = function () {
+  const ctx = this.ctx;
+  if (!ctx || !this.playing) return;
+
+  while (this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD) {
+    const kind = this.pattern[this.beatIndex] !== undefined
+      ? this.pattern[this.beatIndex]
+      : 0;
+
+    this.click(this.nextNoteTime, kind);
+
+    // 通知界面（延后到真正发声的时刻再闪，避免提前闪）
+    if (this.onBeat) {
+      const delay = (this.nextNoteTime - ctx.currentTime) * 1000;
+      const idx = this.beatIndex;
+      setTimeout(() => {
+        if (this.playing) this.onBeat(idx, kind);
+      }, Math.max(0, delay));
+    }
+
+    // 推进到下一拍
+    this.nextNoteTime += this.beatDuration();
+    this.beatIndex = (this.beatIndex + 1) % this.num;
+  }
+};
+
+/* ── 开始 ── */
+Metronome.prototype.start = function () {
+  if (this.playing) return;
+  this.ensureCtx();
+
+  this.playing = true;
+  this.beatIndex = 0;
+  // 稍微延后一点起拍，避免第一声被切掉
+  this.nextNoteTime = this.ctx.currentTime + 0.06;
+
+  this.scheduler();
+  this.timerId = setInterval(() => this.scheduler(), LOOKAHEAD_MS);
+};
+
+/* ── 停止 ── */
+Metronome.prototype.stop = function () {
+  this.playing = false;
+  if (this.timerId) {
+    clearInterval(this.timerId);
+    this.timerId = null;
+  }
+  this.beatIndex = 0;
+  this.currentBeat = -1;
+};
+
+/* ── 改速度（运行中也能立即生效）── */
+Metronome.prototype.setBpm = function (bpm) {
+  this.bpm = clampBpm(bpm);
+};
+
+/* ── 改拍号 ──
+   同时重算重拍安排。如果正在响，下一小节生效（不打断当前小节）。 */
+Metronome.prototype.setMeter = function (num, den) {
+  this.num = clampNum(num);
+  this.den = den;
+  this.pattern = accentPattern(this.num, this.den);
+
+  if (this.beatIndex >= this.num) {
+    this.beatIndex = 0;
+  }
+};
+
+/* ── 拍号文字 ── */
+Metronome.prototype.meterLabel = function () {
+  return this.num + '/' + this.den;
+};
+
+
+/* ─────────── 3. 界面控制 ─────────── */
+
+/* ══════════════════════════════════════════════════════════════
+   节拍器界面（由 tools/add_metronome_js.py 插入）
+   ══════════════════════════════════════════════════════════════ */
+
+(function initMetronome(){
+
+  /* ══════════════════════════════════════════════════════
+     元素
+     ══════════════════════════════════════════════════════ */
+
+  const el = {
+    tabs:       document.getElementById('appTabs'),
+    tabTuner:   document.getElementById('tabTuner'),
+    tabMetro:   document.getElementById('tabMetro'),
+    pageTuner:  document.getElementById('pageTuner'),
+    pageMetro:  document.getElementById('pageMetro'),
+
+    meterBtn:   document.getElementById('meterBtn'),
+    meterLabel: document.getElementById('meterLabel'),
+    meterSheet: document.getElementById('meterSheet'),
+    meterClose: document.getElementById('meterClose'),
+    numWheel:   document.getElementById('numWheel'),
+    denWheel:   document.getElementById('denWheel'),
+
+    ring:       document.getElementById('metroRing'),
+    center:     document.getElementById('ringCenter'),
+    progress:   document.getElementById('ringProgress'),
+    pulseRing:  document.getElementById('pulseRing'),
+    bpmValue:   document.getElementById('bpmValue'),
+    bpmInput:   document.getElementById('bpmInput'),
+    bpmTerm:    document.getElementById('bpmTerm'),
+    beatDots:   document.getElementById('beatDots'),
+    vol:        document.getElementById('volSeg'),
+  };
+
+  // 缺任何一个都不往下走 —— 后面到处在用，
+  // 中途爆 null 更难查。
+  const missing = Object.keys(el).filter(k => !el[k]);
+  if (missing.length) {
+    console.warn('[节拍器] 缺少元素，已跳过初始化：', missing.join(', '));
+    return;
+  }
+
+  const metro = new Metronome();
+
+  /* ── 圆环尺寸 → CSS 变量 ──
+     量出圆环直径写进 --ring-size，圆内的数字、术语按它缩放。
+     圆环大小取决于屏幕高度和宽度，各机型差异很大，
+     量着来才能保证“数字约占圆环 1/3”在真机上成立。 */
+  function syncRingSize(){
+    const area = el.ring.parentElement;
+    if (!area) return;
+
+    const maxD = parseFloat(getComputedStyle(area).getPropertyValue('--ring-max')) || 310;
+    const w = area.clientWidth;
+    const h = area.clientHeight;
+
+    if (!(w > 0) || !(h > 0)) return;
+
+    // 取「可用宽 / 可用高 / 上限」三者最小 —— 三者都不依赖圆环内容，
+    // 所以不会出现「尺寸依赖字号、字号又依赖尺寸」的塌缩。
+    const d = Math.max(120, Math.min(w, h, maxD));
+    el.ring.style.setProperty('--ring-size', d.toFixed(1) + 'px');
+  }
+  if (window.ResizeObserver) {
+    // 观察外层区域，不能观察圆环自己 —— 那会形成反馈环。
+    new ResizeObserver(syncRingSize).observe(el.ring.parentElement);
+  }
+  syncRingSize();
+  window.addEventListener('resize', syncRingSize);
+  window.addEventListener('orientationchange', syncRingSize);
+
+  /* ── 音量：16 格分段刻度 ──
+     指针位置 → 音量（连续映射，不卡格）。
+     同时也支持键盘方向键，以及 role=slider 的取值播报。 */
+  const VOL_SEGS = 16;
+
+  function buildVolSegs(){
+    let h = '';
+    for (let i = 0; i < VOL_SEGS; i++) h += '<i></i>';
+    el.vol.innerHTML = h;
+  }
+
+  function paintVolume(){
+    const n = Math.round(metro.volume * VOL_SEGS);
+    const items = el.vol.children;
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.toggle('on', i < n);
+    }
+    el.vol.setAttribute('aria-valuenow', String(Math.round(metro.volume * 100)));
+  }
+
+  function setVolFromX(clientX){
+    const r = el.vol.getBoundingClientRect();
+    if (r.width <= 0) return;
+    const t = (clientX - r.left) / r.width;
+    metro.volume = Math.max(0, Math.min(1, t));
+    paintVolume();
+  }
+
+  let volDown = false;
+  el.vol.addEventListener('pointerdown', (e) => {
+    volDown = true;
+    try { el.vol.setPointerCapture(e.pointerId); } catch (_) {}
+    setVolFromX(e.clientX);
+  });
+  el.vol.addEventListener('pointermove', (e) => {
+    if (volDown) setVolFromX(e.clientX);
+  });
+  function volUp(e){
+    volDown = false;
+    try { el.vol.releasePointerCapture(e.pointerId); } catch (_) {}
+  }
+  el.vol.addEventListener('pointerup', volUp);
+  el.vol.addEventListener('pointercancel', volUp);
+
+  el.vol.addEventListener('keydown', (e) => {
+    let d = 0;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown')  d = -0.05;
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') d = 0.05;
+    else if (e.key === 'Home') { metro.volume = 0; paintVolume(); e.preventDefault(); return; }
+    else if (e.key === 'End')  { metro.volume = 1; paintVolume(); e.preventDefault(); return; }
+    else return;
+    e.preventDefault();
+    metro.volume = Math.max(0, Math.min(1, metro.volume + d));
+    paintVolume();
+  });
+
+  buildVolSegs();
+  paintVolume();
+
+  // 是否正在输入速度（切页、空格键都要看这个）
+  let editing = false;
+  let currentPage = 'tuner';
+
+  /* ══════════════════════════════════════════════════════
+     页面切换（胶囊滑块）
+     ══════════════════════════════════════════════════════ */
+
+  function switchPage(page) {
+    if (page === currentPage) return;
+    currentPage = page;
+
+    const isMetro = (page === 'metro');
+
+    el.tabTuner.classList.toggle('active', !isMetro);
+    el.tabMetro.classList.toggle('active',  isMetro);
+    el.tabs.dataset.index = isMetro ? '1' : '0';
+
+    el.pageTuner.classList.toggle('active', !isMetro);
+    el.pageMetro.classList.toggle('active',  isMetro);
+
+    document.body.dataset.page = page;
+
+    if (isMetro) {
+      // 切到节拍页：停掉调音器，释放麦克风。
+      // running/stop 在调音器自己的闭包里，这里拿不到，
+      // 所以看麦克风状态灯（由调音器维护），再点它的按钮触发停止。
+      try {
+        const mic = document.getElementById('micStatus');
+        const tunerBtn = document.getElementById('startBtn');
+        if (mic && mic.classList.contains('on') && tunerBtn) {
+          tunerBtn.click();
+        }
+      } catch (e) {}
+
+      // 节拍页初始是隐藏的（display:none），刚切过来时之前量的尺寸是 0。
+      // ResizeObserver 通常会补触发，但不依赖它 —— 等布局落定后显式量一次。
+      requestAnimationFrame(syncRingSize);
+    } else {
+      // 切回调音页：节拍器停掉。
+      // 它的声音会被麦克风收进去，导致音高检测乱跳。
+      if (metro.playing) stopMetro();
+    }
+
+    // 正在输入速度的话，先结束输入（避免输入框一直张着）
+    if (editing) endEdit(true);
+
+    // 顺手收起设置面板 —— 切页后还张着会显得乱
+    try {
+      const panel = document.getElementById('settingsPanel');
+      const gear  = document.getElementById('settingsBtn');
+      if (panel && panel.classList.contains('open')) {
+        panel.classList.remove('open');
+        if (gear) gear.classList.remove('active');
+      }
+    } catch (e) {}
+  }
+
+  el.tabTuner.addEventListener('click', () => switchPage('tuner'));
+  el.tabMetro.addEventListener('click', () => switchPage('metro'));
+
+  /* ══════════════════════════════════════════════════════
+     拍号选择面板
+     ══════════════════════════════════════════════════════ */
+
+  /* ── 双列滚轮 ──
+     不用原生滚动：每项按相对位置绝对定位，拖动换算成索引变化。
+     这样能精确控制居中，也方便每跨一格震一下。 */
+  const WHEEL_H  = 46;                             // 单项高度
+  const NUM_LIST = [];
+  for (let n = NUM_MIN; n <= NUM_MAX; n++) NUM_LIST.push(n);
+  const DEN_LIST = DEN_VALUES.slice();
+
+  function buzz(ms){
+    try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (_) {}
+  }
+
+  // 只渲染中间 ±2 行 —— 屏幕上看得见的就这几行，多了也白画
+  function makeWheel(rootEl, list, getIdx, onPick){
+    function render(){
+      const cur = getIdx();
+      let h = '';
+      for (let k = -2; k <= 2; k++) {
+        const i = cur + k;
+        if (i < 0 || i >= list.length) continue;
+        const cls = k === 0 ? 'sel' : (Math.abs(k) === 1 ? 'near' : 'far');
+        h += '<div class="meter-wheel-item ' + cls + '" '
+           + 'style="transform:translateY(' + (k * WHEEL_H) + 'px)">'
+           + list[i] + '</div>';
+      }
+      rootEl.innerHTML = h;
+      rootEl.setAttribute('aria-valuemin', String(list[0]));
+      rootEl.setAttribute('aria-valuemax', String(list[list.length - 1]));
+      rootEl.setAttribute('aria-valuenow', String(list[cur]));
+    }
+
+    let drag = null;
+    rootEl.addEventListener('pointerdown', (e) => {
+      drag = { y: e.clientY, start: getIdx() };
+      try { rootEl.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    rootEl.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      // 往上拖 = 列表往上走 = 索引增大
+      const step = Math.round((drag.y - e.clientY) / WHEEL_H);
+      let i = drag.start + step;
+      i = Math.max(0, Math.min(list.length - 1, i));
+      if (i !== getIdx()) {
+        onPick(i);
+        buzz(8);
+        render();
+      }
+    });
+
+    function endDrag(){ drag = null; }
+    rootEl.addEventListener('pointerup', endDrag);
+    rootEl.addEventListener('pointercancel', endDrag);
+
+    // 键盘：上下键一格一格走
+    rootEl.addEventListener('keydown', (e) => {
+      let d = 0;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') d = -1;
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') d = 1;
+      else return;
+      e.preventDefault();
+      const i = Math.max(0, Math.min(list.length - 1, getIdx() + d));
+      if (i !== getIdx()) { onPick(i); buzz(8); render(); }
+    });
+
+    render();
+    return render;
+  }
+
+  const renderNumWheel = makeWheel(
+    el.numWheel, NUM_LIST,
+    () => NUM_LIST.indexOf(metro.num),
+    (i) => setMeter(NUM_LIST[i], metro.den)
+  );
+  const renderDenWheel = makeWheel(
+    el.denWheel, DEN_LIST,
+    () => DEN_LIST.indexOf(metro.den),
+    (i) => setMeter(metro.num, DEN_LIST[i])
+  );
+
+  function renderWheels(){ renderNumWheel(); renderDenWheel(); }
+
+  function openSheet() {
+    el.meterSheet.classList.add('open');
+  }
+  function closeSheet() {
+    el.meterSheet.classList.remove('open');
+  }
+
+  el.meterBtn.addEventListener('click', openSheet);
+  el.meterClose.addEventListener('click', closeSheet);
+  // 点遮罩也能关
+  el.meterSheet.addEventListener('click', (e) => {
+    if (e.target === el.meterSheet) closeSheet();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     拍号设置
+     ══════════════════════════════════════════════════════ */
+
+  function setMeter(num, den) {
+    metro.setMeter(num, den);
+
+    el.meterLabel.textContent = metro.num + '/' + metro.den;
+    renderWheels();
+    buildBeatDots();
+    clearBeatHighlight();
+  }
+
+  /* ══════════════════════════════════════════════════════
+     拍点指示
+     ══════════════════════════════════════════════════════ */
+
+  function buildBeatDots() {
+    el.beatDots.innerHTML = '';
+    // 拍子多的话缩小间距，避免挤成一片
+    el.beatDots.classList.toggle('dense', metro.num > 8);
+
+    for (let i = 0; i < metro.num; i++) {
+      const d = document.createElement('div');
+      d.className = 'beat-dot' + (metro.pattern[i] === 2 ? ' accent' : '');
+      el.beatDots.appendChild(d);
+    }
+  }
+
+  function clearBeatHighlight() {
+    el.beatDots.querySelectorAll('.beat-dot').forEach(d => d.classList.remove('on'));
+    el.pulseRing.classList.remove('beat');
+  }
+
+  function highlightBeat(index, kind) {
+    const dots = el.beatDots.querySelectorAll('.beat-dot');
+    dots.forEach((d, i) => d.classList.toggle('on', i === index));
+
+    // 脉冲：先移除再加，让动画能重播
+    el.pulseRing.classList.remove('beat');
+    void el.pulseRing.offsetWidth;
+    el.pulseRing.classList.add('beat');
+  }
+
+  /* ══════════════════════════════════════════════════════
+     BPM 显示
+     ══════════════════════════════════════════════════════ */
+
+  // 进度弧：270° 的弧，按 BPM 在范围内的比例显示
+  const RING_R = 90;
+  const RING_C = 2 * Math.PI * RING_R;      // 周长
+  const ARC_LEN = RING_C * 0.75;            // 270° 的弧长
+
+  function updateProgress() {
+    const ratio = (metro.bpm - BPM_MIN) / (BPM_MAX - BPM_MIN);
+    const len = ARC_LEN * Math.max(0, Math.min(1, ratio));
+    el.progress.style.strokeDasharray = len + ' ' + RING_C;
+  }
+
+  function paintBpm() {
+    el.bpmValue.textContent = metro.bpm;
+    const t = tempoTerm(metro.bpm);
+    el.bpmTerm.textContent = t.it;
+    updateProgress();
+  }
+
+  function setBpm(bpm) {
+    const old = metro.bpm;
+    metro.setBpm(bpm);
+    if (metro.bpm === old) return;
+    paintBpm();
+  }
+
+  /* ══════════════════════════════════════════════════════
+     键盘输入 BPM（点数字进入）
+     ══════════════════════════════════════════════════════ */
+
+  function beginEdit() {
+    if (editing) return;
+    editing = true;
+
+    el.bpmInput.value = metro.bpm;
+    el.bpmValue.classList.add('hidden');
+    el.bpmInput.classList.add('show');
+
+    // 聚焦并全选，方便直接覆盖输入
+    setTimeout(() => {
+      el.bpmInput.focus();
+      try { el.bpmInput.setSelectionRange(0, 9); } catch (e) {}
+    }, 30);
+  }
+
+  function endEdit(commit) {
+    if (!editing) return;
+    editing = false;
+
+    if (commit) {
+      const raw = (el.bpmInput.value || '').replace(/[^0-9]/g, '');
+      if (raw) {
+        setBpm(clampBpm(parseInt(raw, 10)));
+      }
+    }
+
+    el.bpmInput.classList.remove('show');
+    el.bpmValue.classList.remove('hidden');
+    paintBpm();
+  }
+
+  el.bpmValue.addEventListener('click', (e) => {
+    e.stopPropagation();
+    beginEdit();
+  });
+
+  el.bpmInput.addEventListener('input', () => {
+    // 只留数字，最多 3 位
+    const clean = el.bpmInput.value.replace(/[^0-9]/g, '').slice(0, 3);
+    if (clean !== el.bpmInput.value) el.bpmInput.value = clean;
+  });
+
+  el.bpmInput.addEventListener('keydown', (e) => {
+    e.stopPropagation();          // 不要触发空格键的播放/停止
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      endEdit(true);
+      el.bpmInput.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      endEdit(false);
+      el.bpmInput.blur();
+    }
+  });
+
+  // 失焦就确认（手机上点空白处也会走这里）
+  el.bpmInput.addEventListener('blur', () => endEdit(true));
+
+  // 在输入框上的触摸/鼠标操作不要传给圆环
+  ['pointerdown', 'pointermove', 'pointerup', 'click'].forEach(ev => {
+    el.bpmInput.addEventListener(ev, (e) => e.stopPropagation());
+  });
+
+  /* ══════════════════════════════════════════════════════
+     圆环拖动调速
+     ══════════════════════════════════════════════════════ */
+
+  let drag = null;
+
+  // 触点相对圆心的角度（度，顺时针，0 = 正右）
+  function angleAt(clientX, clientY) {
+    const rect = el.ring.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    return Math.atan2(clientY - cy, clientX - cx) * 180 / Math.PI;
+  }
+
+  function onDown(e) {
+    // 圆形内的输入要素不算拖动：数字、输入框
+    if (e.target.closest) {
+      if (e.target.closest('.ring-bpm')) return;
+      if (e.target.closest('.ring-bpm-input')) return;
+    }
+
+    // 正在输入速度时，先结束输入，不要误触拖动
+    if (editing) return;
+
+    const x = e.clientX, y = e.clientY;
+    drag = {
+      last:   angleAt(x, y),
+      start:  metro.bpm,
+      accum:  0,
+      moved:  false,
+    };
+
+    try { el.ring.setPointerCapture(e.pointerId); } catch (err) {}
+  }
+
+  function onMove(e) {
+    if (!drag) return;
+
+    const a = angleAt(e.clientX, e.clientY);
+
+    // 角度增量，处理跨越 ±180° 的回绕
+    let d = a - drag.last;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+
+    drag.accum += d;
+    drag.last = a;
+
+    // 位移太小就当没动 —— 避免手指抖动误改速度
+    if (!drag.moved) {
+      if (Math.abs(drag.accum) < 3) return;
+      drag.moved = true;
+    }
+
+    const deltaBpm = drag.accum / 360 * DRAG_BPM_PER_TURN;
+    setBpm(Math.round(drag.start + deltaBpm));
+
+    e.preventDefault();
+  }
+
+  function onUp(e) {
+    if (!drag) return;
+    const wasDrag = drag.moved;
+    drag = null;
+    try { el.ring.releasePointerCapture(e.pointerId); } catch (err) {}
+
+    // 只是点了一下（没拖动）→ 当作播放/停止
+    if (!wasDrag) {
+      if (metro.playing) stopMetro(); else startMetro();
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     播放 / 停止
+
+     没有单独的播放按钮 —— 点圆环任意位置（含圆心）即开始/停止。
+     播放中通过数字变主色来表示状态。
+     ══════════════════════════════════════════════════════ */
+
+  function startMetro() {
+    metro.onBeat = (index, kind) => highlightBeat(index, kind);
+    metro.start();
+
+    el.bpmValue.classList.add('playing');
+    el.center.classList.add('playing');
+    el.ring.setAttribute('aria-label', '节拍器运行中，点一下停止');
+  }
+
+  function stopMetro() {
+    metro.stop();
+
+    el.bpmValue.classList.remove('playing');
+    el.center.classList.remove('playing');
+    el.ring.setAttribute('aria-label', '节拍器已停止，点一下开始');
+    clearBeatHighlight();
+  }
+
+  el.ring.addEventListener('pointerdown', onDown);
+  el.ring.addEventListener('pointermove', onMove);
+  el.ring.addEventListener('pointerup', onUp);
+  el.ring.addEventListener('pointercancel', () => { drag = null; });
+
+  // 空格键快捷开关（输入框里打字时不触发）
+  document.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space') return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    if (editing) return;                              // 正在输入速度
+    if (currentPage !== 'metro') return;
+    if (el.meterSheet.classList.contains('open')) return;
+    e.preventDefault();
+    if (metro.playing) stopMetro(); else startMetro();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     切到后台时清掉高亮（播放不停 —— 用户可能就想让它响着）
+     ══════════════════════════════════════════════════════ */
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearBeatHighlight();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     初始化
+     ══════════════════════════════════════════════════════ */
+
+  setMeter(4, 4);
+  metro.setBpm(120);
+  paintBpm();                 // 初始化时直接画，不能走 setBpm（值没变会跳过）
+  el.ring.setAttribute('aria-label', '节拍器已停止，点一下开始');
+  document.body.dataset.page = 'tuner';
+  el.tabs.dataset.index = '0';
+
+})();
+
+</script>
+<!-- /METRONOME-JS-INSERTED -->
+
 </body>
 </html>

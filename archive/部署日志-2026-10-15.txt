@@ -1,0 +1,72 @@
+
+始信音乐 · 调音器 —— 部署
+
+
+0. 检查工程完整性
+  ✓ 网站文件齐全
+  ✓ 安卓工程齐全
+  ✓ Netlify 配置齐全
+
+1. 检查网络
+  ✓ 通过代理可用（127.0.0.1:7897）
+
+2. 获取你仓库的当前内容
+  正在克隆…
+  ✓ 克隆成功
+  · 当前分支：main
+  · 现有文件：1 个
+  原有内容：
+      index.html
+
+3. 变更预览
+    + 把根目录的 index.html 移到 archive/old-index.html（保留备份）
+    + 新增 web/index.html —— 新版调音器（含 PWA 与下载入口）
+    + 新增 web/manifest.webmanifest、web/sw.js、web/app-version.json
+    + 新增 web/icons/ —— 4 个图标
+    + 新增 web/download/index.html —— 手机下载页
+    + 新增 android/ —— 安卓 App 工程
+    + 新增 .github/workflows/build-apk.yml —— 自动打包流水线
+    + 新增 netlify.toml —— 告诉 Netlify 从 web/ 发布
+    + 新增 tools/ —— 各种辅助脚本
+    + 新增 操作说明.md
+
+  不会删除你原来的东西 —— index.html 只是挪个位置存起来。
+
+4. 执行变更
+  ✓ 原 index.html 已存到 archive/old-index.html
+  ✓ 新文件已铺好
+
+5. 统计
+  · 本次变更 57 项
+  · 已暂存 58 个文件
+  ✓ 已确认没有密钥或缓存文件混入
+
+6. 提交并推送
+  ✓ 已提交
+  正在推送…
+  ✓ 推送成功
+
+7. 完成
+
+  ✅ 代码已经在 GitHub 上了
+
+  仓库：https://github.com/https://github.com/chenguangnanlove-glitch/nan-tuner.git
+
+  接下来做两件事：
+
+  ① 确认 Netlify 的发布目录
+     打开 Netlify → 你的站点 → Site configuration → Build & deploy
+     把 Publish directory 改成：web
+     （netlify.toml 里已经写了，但 UI 里确认一下更保险）
+
+  ② 配置 APK 构建密钥
+     1. 打开仓库 → Settings → Secrets and variables → Actions
+     2. 添加这 4 个 Secret（内容在 tools/keystore/密钥信息.txt）：
+          KEYSTORE_BASE64
+          KEYSTORE_PASSWORD
+          KEY_PASSWORD
+          KEY_ALIAS
+     3. 打开仓库 → Actions → 「构建安卓 APK」→ Run workflow
+
+  等几分钟，APK 就打包好了，手机打开 https://nan-tuner.cc/download/ 即可下载。
+
