@@ -270,13 +270,14 @@
   .app.tuning-ok #needleTip{ fill:var(--success); }
   .app.tuning-ok .gauge-arc{ stroke:rgba(var(--success-rgb),.38); }
 
-  /* 音名叠层：让音名的中心与圆环圆心（指针轴心）重合 */
+  /* 音名叠层
+     运行中：音名精确居中于圆心（指针轴心），音分与赫兹固定在下方
+     待机：三者回到正常流，整体居中 —— 否则「轻触开始」会偏下 */
   .gauge-overlay{
     position:absolute;
-    left:0;right:0;
-    top:50%;
-    height:84px;margin-top:-42px;
-    display:flex;align-items:center;justify-content:center;
+    inset:0;
+    display:flex;
+    align-items:center;justify-content:center;
     pointer-events:none;
     text-align:center;
   }
@@ -303,12 +304,11 @@
   .app.tuning-ok .note{color:var(--success)}
   .app.tuning-ok .note .oct{color:var(--success);opacity:.7}
 
-  /* 音分文字：紧贴音名下方，不参与居中 —— 否则会把音名推偏 */
+  /* 音分：运行时固定在音名下方 */
   .cents{
     position:absolute;
     left:0;right:0;
-    top:100%;
-    margin-top:10px;
+    top:50%;margin-top:48px;
     font-size:15px;font-weight:500;
     letter-spacing:.04em;
     color:var(--text-3);
@@ -322,16 +322,32 @@
   .cents.low{color:var(--warn)}
   .cents.ok{color:var(--success)}
 
+  /* 赫兹：紧跟在音分下方 */
   .freq-line{
     position:absolute;
-    left:0;right:0;bottom:-6px;
-    text-align:center;
+    left:0;right:0;
+    top:50%;margin-top:73px;
     font-size:11.5px;font-weight:400;
-    color:var(--text-3);
+    color:var(--text-2);
     letter-spacing:.1em;
     font-variant-numeric:tabular-nums;
-    min-height:16px;
-    opacity:.7;
+    opacity:.72;
+    text-shadow:
+      0 0 9px var(--surface), 0 0 9px var(--surface),
+      0 0 4px var(--surface);
+  }
+  .freq-line:empty{ display:none }
+
+  /* 待机：三者回到正常流，整体居中 */
+  .gauge-overlay.idle{
+    flex-direction:column;
+    gap:0;
+  }
+  .gauge-overlay.idle .cents{
+    position:static;margin-top:0;
+  }
+  .gauge-overlay.idle .freq-line{
+    position:static;margin-top:5px;
   }
 
   /* 音量条：16 格分段刻度（与节拍页同款）
@@ -437,7 +453,9 @@
 
   /* 钢琴 */
   .piano-area{display:none}
-  .piano-area.show{display:block}
+  /* 钢琴区比弦区矮 8px（键盘 56 vs 按钮 64），
+     补一段下边距，让下面音量条在两种乐器下落在同一位置 */
+  .piano-area.show{display:block;padding-bottom:8px}
   .octave-row{
     display:flex;align-items:center;justify-content:center;
     gap:14px;margin-bottom:10px;height:32px;
@@ -577,7 +595,6 @@
      弦按钮的 padding 不要在矮屏改动 —— 顶部那条弦会贴边。 */
   @media (max-height:780px){
     .gauge-svg{ max-width:265px }
-    .gauge-overlay{ height:75px;margin-top:-37.5px }
     .note .letter{font-size:75px}
     .note .oct{font-size:24px}
     .center{margin-top:61px}
@@ -588,7 +605,6 @@
   }
   @media (max-height:660px){
     .gauge-svg{ max-width:210px }
-    .gauge-overlay{ height:60px;margin-top:-30px }
     .note .letter{font-size:60px}
     .note .oct{font-size:19px}
     .center{margin-top:40px}
@@ -600,14 +616,12 @@
   }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
-    .gauge-overlay{ height:48px;margin-top:-24px }
     .note .letter{font-size:48px}
     .note .oct{font-size:16px}
     .center{margin-top:26px}
   }
   @media (max-height:430px){
     .gauge-svg{ max-width:132px }
-    .gauge-overlay{ height:38px;margin-top:-19px }
     .note .letter{font-size:38px}
     .note .oct{font-size:13px}
     .center{margin-top:18px}
@@ -1187,12 +1201,11 @@
       </svg>
 
       <!-- 音名叠层 -->
-      <div class="gauge-overlay">
-        <div class="note" id="noteName"><span class="letter">–</span></div>
+      <div class="gauge-overlay idle">
+        <div class="note" id="noteName"></div>
         <div class="cents" id="centsText">点击开始</div>
+        <div class="freq-line" id="freqText"></div>
       </div>
-
-      <div class="freq-line" id="freqText"></div>
     </div>
 
     <div class="strobe-view" id="strobeView">
@@ -1409,6 +1422,7 @@
   const noteEl      = document.getElementById('noteName');
   const centsEl     = document.getElementById('centsText');
   const freqEl      = document.getElementById('freqText');
+  const gaugeOverlay= document.querySelector('.gauge-overlay');
   const stringsEl   = document.getElementById('stringsEl');
   const pianoArea   = document.getElementById('pianoArea');
   const pianoKeysEl = document.getElementById('pianoKeys');
@@ -1974,6 +1988,8 @@
     }
     noteEl.innerHTML = '<span class="letter">' + displayName + '</span>' +
                        '<span class="oct">' + displayOct + '</span>';
+    /* 有音名了：回到「音名居中 + 音分/赫兹固定在下方」的布局 */
+    gaugeOverlay.classList.remove('idle');
     freqEl.textContent = freq.toFixed(2) + ' Hz';
     if (ok){ centsEl.textContent = '准音'; centsEl.className = 'cents ok'; }
     else if (cents > 0){ centsEl.textContent = '+' + cents.toFixed(0) + '¢  偏高'; centsEl.className = 'cents high'; }
@@ -1984,8 +2000,9 @@
 
   function clearDisplay(){
     /* 不再画破折号占位 —— 84px 的横杠很抢眼。
-       没有音名时就让指针完整地露出来，提示交给下方那行字。 */
+       没有音名时切回 idle：提示文字回到圆心居中。 */
     noteEl.innerHTML = '';
+    gaugeOverlay.classList.add('idle');
     centsEl.textContent = running ? '拨响一个音…' : '轻触开始';
     centsEl.className = 'cents';
     freqEl.textContent = '';
