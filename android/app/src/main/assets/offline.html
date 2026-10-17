@@ -1247,6 +1247,7 @@
 <meta property="og:title" content="始信音乐 · 调音器">
 <meta property="og:description" content="精准的手机调音器，支持吉他与尤克里里。">
 <meta property="og:image" content="/icons/icon-512.png">
+<script src="audio-manifest.js"></script>
 </head>
 <body>
 
@@ -1981,6 +1982,14 @@
      加载失败（如用 file:// 直接打开）就回退到下面的合成音。
      ══════════════════════════════════════════════ */
   const SAMPLE_DIR = 'audio/';
+  /* 音频 URL 带内容哈希（见 web/audio-manifest.js）。
+     哈希变了 URL 就变了，Service Worker 的缓存自然失效 ——
+     否则换了采样，老用户永远听不到新的。
+     清单没加载时退化成不带版本（首次访问兜底）。 */
+  function sampleUrl(key){
+    if (window.AudioManifest) return window.AudioManifest.url(key);
+    return SAMPLE_DIR + key + '.m4a';
+  }
   const sampleBufs = {};      /* key → AudioBuffer */
   const sampleJobs = {};      /* key → Promise */
 
@@ -2013,7 +2022,7 @@
     sampleJobs[key] = (async () => {
       try {
         const ctx = await ensureAudio();
-        const res = await fetch(SAMPLE_DIR + key + '.m4a');
+        const res = await fetch(sampleUrl(key));
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const raw = await res.arrayBuffer();
         const buf = await ctx.decodeAudioData(raw);
@@ -2136,6 +2145,70 @@
     return freq;
   }
 
+  /* ══════════════════════════════════════════
+     自由弹奏时的八度折叠
+
+     自相关法在低音弦上容易锁到二次谐波（高八度）。
+     锁定某根弦时可以直接按目标频率折；自由弹奏时没有目标，
+     所以换个办法：把实测值和「每根弦 × 1, 2, 3 倍」都算一遍距离，
+     取整体最优的那组合 —— 如果某个弦的二次谐波比任何弦的基频都更贴近，
+     就判定为锁到谐波，折回基频。
+
+     为什么最高只试到 3 倍：吉他 6 弦 E2 的 3 次谐波已经到 247Hz，
+     再往上就落进别的弦的音域，容易误判。
+     ══════════════════════════════════════════ */
+  /* 只认二次谐波，不认三次。
+     原因：三次谐波会撞上别的弦 ——
+       E2 的 3 次 = 247.2Hz，正好是 B3
+       A2 的 3 次 = 330.0Hz，正好是 E4
+     这是物理上的天然歧义，无法区分「弹了 B3」和「E2 的泛音」。
+     强行判会把正常的高音弦判成低音谐波，比不判更糟。
+     二次谐波没有这个问题：吉他六根弦里没有任何一根落在别根的八度上。 */
+  const HARMONICS = [1, 2];
+
+  function nearestString(freq){
+    const strings = INSTRUMENTS[mode].strings;
+    let best = 0, bestC = Infinity;
+    for (let i = 0; i < strings.length; i++){
+      const c = Math.abs(1200 * Math.log2(freq / getFreq(strings[i].midi)));
+      if (c < bestC){ bestC = c; best = i; }
+    }
+    return best;
+  }
+
+  /* 返回折回基频后的频率。判断不成立时原样返回。 */
+  function foldToHarmonic(freq){
+    if (mode === 'piano') return freq;
+    const strings = INSTRUMENTS[mode].strings;
+
+    /* 先看实测值直接匹配基频有多近 */
+    let bestBase = Infinity;
+    for (let i = 0; i < strings.length; i++){
+      const c = Math.abs(1200 * Math.log2(freq / getFreq(strings[i].midi)));
+      if (c < bestBase) bestBase = c;
+    }
+    /* 已经足够近（在准音区内），就是基频，不动 */
+    if (bestBase <= IN_TUNE * 2) return freq;
+
+    /* 试「某根弦的 n 次谐波」是否明显更贴近 */
+    let bestHarm = Infinity, bestHarmFreq = freq;
+    for (let i = 0; i < strings.length; i++){
+      const f0 = getFreq(strings[i].midi);
+      for (let h = 0; h < HARMONICS.length; h++){
+        const n = HARMONICS[h];
+        if (n === 1) continue;
+        const c = Math.abs(1200 * Math.log2(freq / (f0 * n)));
+        if (c < bestHarm){ bestHarm = c; bestHarmFreq = f0; }
+      }
+    }
+
+    /* 谐波解释必须比基频解释好 3 倍以上，且本身够近（50 音分内）才认 */
+    if (bestHarm * 3 < bestBase && bestHarm < 50){
+      return bestHarmFreq;
+    }
+    return freq;
+  }
+
   function processPitch(freqRaw){
     freqHistory.push(freqRaw);
     if (freqHistory.length > HISTORY_SIZE) freqHistory.shift();
@@ -2149,13 +2222,18 @@
     if (mode === 'piano'){
       candId = Math.round(freqToMidi(median));
     } else {
-      const strings = INSTRUMENTS[mode].strings;
-      let best = 0, bestC = Infinity;
-      for (let i = 0; i < strings.length; i++){
-        const c = Math.abs(1200 * Math.log2(median / getFreq(strings[i].midi)));
-        if (c < bestC){ bestC = c; best = i; }
-      }
-      candId = best;
+      /* 自由弹奏（没锁定某根弦）时也要做八度折叠。
+         低音弦基频弱、二次谐波强，自相关很容易锁到高八度 ——
+         实测吉他上会这样错：
+           弹 E2 但测到 164.8Hz → 匹配成 D3（差 200 音分）
+           弹 A2 但测到 220.0Hz → 匹配成 G3（差 200 音分）
+           弹 G3 但测到 392.0Hz → 匹配成 E4（差 300 音分）
+         显示的是完全不同的弦，用户会以为琴坏了两根。
+
+         做法：先按实测值找最近的弦，再试它的整数分音，
+         哪个「弦 + 整数倍」最贴近实测值就取哪个。 */
+      median = foldToHarmonic(median);
+      candId = nearestString(median);
     }
     let displayId;
     if (lockedKey !== null){
@@ -3804,6 +3882,5 @@ Metronome.prototype.meterLabel = function () {
 
 </script>
 <!-- /METRONOME-JS-INSERTED -->
-
 </body>
 </html>

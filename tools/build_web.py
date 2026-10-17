@@ -258,6 +258,21 @@ def generate_offline_only() -> int:
     # offline.html 从 appassets.androidplatform.net/assets/ 加载，
     # 代码里 fetch('audio/xxx.m4a') 会解析成 /assets/audio/xxx.m4a，
     # 所以音频也必须放进 assets/audio/，否则离线时只剩合成音。
+    # 先生成音频内容哈希清单（页面靠它拼带 ?v= 的 URL）
+    manifest_note = ""
+    try:
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, os.path.join(BASE, "tools", "build_audio_manifest.py")],
+            capture_output=True, text=True
+        )
+        if r.returncode == 0:
+            manifest_note = f"  {GREEN}→{RESET} 音频哈希     audio-manifest.js"
+        else:
+            manifest_note = f"  {YELLOW}⚠{RESET}  音频哈希生成失败，沿用旧清单"
+    except Exception:
+        manifest_note = f"  {YELLOW}⚠{RESET}  音频哈希生成异常"
+
     audio_note = ""
     n = 0
     if os.path.isdir(AUDIO_SRC):
@@ -274,6 +289,22 @@ def generate_offline_only() -> int:
             n += 1
         audio_note = f"  {GREEN}→{RESET} 乐器录音   assets/audio/  {DIM}{n} 个文件{RESET}"
 
+    # 音频清单也要进 APK assets —— offline.html 会 <script src="audio-manifest.js">，
+    # 不在 assets 里就会 404，页面退化成不带版本参数的 URL。
+    manifest_src = os.path.join(BASE, "web", "audio-manifest.js")
+    manifest_dst = os.path.join(BASE, "android", "app", "src", "main", "assets",
+                                "audio-manifest.js")
+    manifest_synced = False
+    if os.path.isfile(manifest_src):
+        os.makedirs(os.path.dirname(manifest_dst), exist_ok=True)
+        if (not os.path.isfile(manifest_dst)
+                or os.path.getsize(manifest_src) != os.path.getsize(manifest_dst)
+                or os.path.getmtime(manifest_src) > os.path.getmtime(manifest_dst)):
+            shutil.copy2(manifest_src, manifest_dst)
+            manifest_synced = True
+        else:
+            manifest_synced = True     # 已是最新
+
     state = load_state()
     state["out_web"] = sha(web_html)
     state["out_offline"] = sha(offline_html)
@@ -288,6 +319,10 @@ def generate_offline_only() -> int:
     print(f"            {DIM}{len(offline_html):,} 字符（已移除下载入口）{RESET}")
     if audio_note:
         print(audio_note)
+    if manifest_note:
+        print(manifest_note)
+        if manifest_synced:
+            print(f"  {GREEN}→{RESET} 清单同步   assets/audio-manifest.js")
     return 0
 
 
