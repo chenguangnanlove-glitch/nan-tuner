@@ -287,6 +287,8 @@
     color:var(--text);
     transition:color .3s;
     font-variant-numeric:tabular-nums;
+    /* 居中的是「字母」，八度靠右侧一个隐形孪生兄弟抵消宽度，
+       因此字母中心 = 圆环圆心。见下面的 .ghost */
     display:flex;align-items:baseline;justify-content:center;
     /* 背景色光晕：指针从字后面穿过时，在笔画周围被柔化，
        像表盘上印的字盖住了指针 —— 比硬遮罩自然 */
@@ -300,6 +302,13 @@
     color:var(--text-2);
     margin-left:6px;
     letter-spacing:0;
+  }
+  /* 左侧的隐形孪生八度：宽度与右侧八度完全相等、镜像摆放。
+     两边同宽 → justify-content:center 居中的就是字母本身。
+     不用写死像素，八度变成两位也能自动平衡。 */
+  .note .oct.ghost{
+    visibility:hidden;
+    margin-left:0;margin-right:6px;
   }
   .app.tuning-ok .note{color:var(--success)}
   .app.tuning-ok .note .oct{color:var(--success);opacity:.7}
@@ -1986,8 +1995,11 @@
       const s = INSTRUMENTS[mode].strings[displayId];
       displayName = s.name; displayOct = s.oct;
     }
-    noteEl.innerHTML = '<span class="letter">' + displayName + '</span>' +
-                       '<span class="oct">' + displayOct + '</span>';
+    noteEl.innerHTML =
+      /* 左侧隐形孪生八度：只占宽度，保证字母本身居中 */
+      '<span class="oct ghost" aria-hidden="true">' + displayOct + '</span>' +
+      '<span class="letter">' + displayName + '</span>' +
+      '<span class="oct">' + displayOct + '</span>';
     /* 有音名了：回到「音名居中 + 音分/赫兹固定在下方」的布局 */
     gaugeOverlay.classList.remove('idle');
     freqEl.textContent = freq.toFixed(2) + ' Hz';
