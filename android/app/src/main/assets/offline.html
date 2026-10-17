@@ -2242,11 +2242,41 @@
     if (running) stop(); else start();
   });
 
+  /* ── 圆形命中检测 ──
+     圆环元素的盒子是外接正方形，四角的空白不该响应点击。
+     用点到圆心的距离判断，ratio = 圆半径 / 元素半宽。
+     加上 2px 容差，让描边外侧的边缘也能点中。 */
+  function hitCircle(el, clientX, clientY, ratio){
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return false;
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const rad = Math.min(r.width, r.height) / 2 * ratio + 2;
+    const dx = clientX - cx, dy = clientY - cy;
+    return dx * dx + dy * dy <= rad * rad;
+  }
+
   /* 圆环点按 = 开始 / 停止（取代底部按钮）
      startBtn 已隐藏，但它仍是状态与文字的唯一来源，
-     这里只把点击转过去，不改动 start()/stop() 的任何逻辑。 */
-  gaugeBlock.addEventListener('click', () => {
+     这里只把点击转过去，不改动 start()/stop() 的任何逻辑。
+
+     触发区严格限定在圆内 —— SVG viewBox 是 300，圆半径 131，
+     所以可见圆只占外接正方形的 87%（面积约 76%），四角是死区。 */
+  const gaugeSvg  = gaugeBlock.querySelector('.gauge-svg');
+  /* ratio = 圆半径 / 半宽。viewBox 300、圆 r=131 → 131 / 150 */
+  const RING_RATIO = 131 / 150;
+  gaugeBlock.addEventListener('click', (e) => {
     if (startBtn.disabled) return;        /* 「启动中」时忽略重复点击 */
+    if (!hitCircle(gaugeSvg, e.clientX, e.clientY, RING_RATIO)) return;
+    startBtn.click();
+  });
+
+  /* 频闪视图：点画布开始/停止。
+     频闪是矩形画布，没有圆可参考，所以整块都可点。
+     不加这个的话，切到频闪后就没地方可以开始了（圆环被 hide）。 */
+  strobeView.addEventListener('click', () => {
+    if (startBtn.disabled) return;
     startBtn.click();
   });
 
@@ -3095,6 +3125,19 @@ Metronome.prototype.meterLabel = function () {
     return Math.atan2(clientY - cy, clientX - cx) * 180 / Math.PI;
   }
 
+  /* 圆形命中检测：圓环元素的盒子是外接正方形，四角的空白不该响应。
+     ratio = 圆半径 / 半宽。SVG viewBox 200、圆 r=90 → 90 / 100。 */
+  const RING_RATIO = 90 / 100;
+  function inRing(clientX, clientY) {
+    const rect = el.ring.getBoundingClientRect();
+    if (!rect.width || !rect.height) return false;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const rad = Math.min(rect.width, rect.height) / 2 * RING_RATIO + 2;
+    const dx = clientX - cx, dy = clientY - cy;
+    return dx * dx + dy * dy <= rad * rad;
+  }
+
   function onDown(e) {
     // 圆形内的输入要素不算拖动：数字、输入框
     if (e.target.closest) {
@@ -3104,6 +3147,11 @@ Metronome.prototype.meterLabel = function () {
 
     // 正在输入速度时，先结束输入，不要误触拖动
     if (editing) return;
+
+    /* 严格限定在圆内：外接正方形的四角不响应，
+       所以那里按下既不会开始节拍器，也不会启动拖动。
+       按下后拖到圆外仍继续拖动（见 onMove）。 */
+    if (!inRing(e.clientX, e.clientY)) return;
 
     const x = e.clientX, y = e.clientY;
     drag = {
