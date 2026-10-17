@@ -401,6 +401,35 @@
     32%        { opacity:1   }
   }
 
+  /* ── 弹错弦 ──
+     用橙色警示，与「偏高/偏低」的暖金、准音的亮金区分开。
+     指针此时没意义（它指向的是那根你没拨的弦），所以淡下去。 */
+  .cents.wrong{
+    color:#e0a458;
+    font-size:13px;
+    letter-spacing:.02em;
+    line-height:1.5;
+    max-width:220px;
+    margin-left:auto;margin-right:auto;
+    animation:wrongIn .28s ease-out;
+  }
+  @keyframes wrongIn{
+    from{ opacity:0; transform:translateY(-3px) }
+    to  { opacity:1; transform:translateY(0) }
+  }
+  .note.wrong .letter,
+  .note.wrong .oct{ opacity:.38 }
+  /* 指针在弹错弦时的淡出由 JS 控制（见 paintNeedleFaded）。
+     CSS 改不动 —— stroke/fill 是 JS 写在元素上的内联属性，优先级更高。 */
+
+  /* 该弦按钮提示一下是它 */
+  .sbtn.hint-wrong{
+    border-color:rgba(224,164,88,.55);
+    background:rgba(224,164,88,.08);
+  }
+  .sbtn.hint-wrong .nm{ color:#e0a458 }
+  .sbtn.hint-wrong .num{ color:rgba(224,164,88,.72) }
+
   /* 音量条：16 格分段刻度（与节拍页同款）
      高度与间距跟节拍页一致，切页时不跳。 */
   .level-row{
@@ -2113,18 +2142,8 @@
     const sorted = freqHistory.slice().sort((a, b) => a - b);
     let median = sorted[Math.floor(sorted.length / 2)];
 
-    /* 八度折叠
-       吉他低音弦的基频很弱、谐波很强，自相关容易锁到二次谐波（高八度）。
-       锁定某根弦时我们知道该是多少，把偏离超过一个八度的折回来。 */
-    if (lockedKey !== null){
-      const tf = (mode === 'piano')
-        ? getFreq(lockedKey)
-        : getFreq(INSTRUMENTS[mode].strings[lockedKey].midi);
-      let guard = 0;
-      while (median > tf * 1.6 && guard++ < 4) median /= 2;
-      guard = 0;
-      while (median < tf / 1.6 && guard++ < 4) median *= 2;
-    }
+    /* 八度折叠是后面的事 —— 先让原始频率去判弹错弦，
+       否则 D3（146.8Hz）会被折成 73.4Hz 反而更像 E2。 */
 
     let candId;
     if (mode === 'piano'){
@@ -2158,19 +2177,99 @@
     let targetFreq;
     if (mode === 'piano') targetFreq = getFreq(displayId);
     else targetFreq = getFreq(INSTRUMENTS[mode].strings[displayId].midi);
+
+    const rawMedian = median;   /* 折叠前的真实测量值 */
+
+    /* ── 弹错弦：先用「未折叠」的原始频率判 ──
+       折叠是为了修谐波误锁，但它会把弹错的音拉回目标弦附近，
+       所以判定必须在折叠之前完成，并把结果传下去。 */
+    let wrongNow = null;
+    if (lockedKey !== null && mode !== 'piano'){
+      const rawCents = Math.abs(1200 * Math.log2(median / targetFreq));
+      if (rawCents > IN_TUNE){
+        wrongNow = findWrongString(median, lockedKey);
+      }
+    }
+
+    /* ── 八度折叠 ──
+       放在这里，是因为弹错弦已经用原始频率判过了。
+       吉他低音弦基频弱、谐波强，自相关容易锁到二次谐波；
+       锁定某根弦时把偏离超过一个八度的折回来。
+       钢琴不折 —— 它没有「锁定某根弦」这个概念，音域也太宽。 */
+    if (lockedKey !== null && mode !== 'piano'){
+      let guard = 0;
+      while (median > targetFreq * 1.6 && guard++ < 4) median /= 2;
+      guard = 0;
+      while (median < targetFreq / 1.6 && guard++ < 4) median *= 2;
+    }
+
     const centsRaw = 1200 * Math.log2(median / targetFreq);
     const gap = Math.abs(centsRaw - smoothCents);
     const alpha = gap > EMA_FAST_GAP ? EMA_FAST : EMA_SLOW;
     smoothCents += (centsRaw - smoothCents) * alpha;
-    updateDisplay(displayId, median, smoothCents);
+    updateDisplay(displayId, median, smoothCents, wrongNow, rawMedian);
   }
 
-  function updateDisplay(displayId, freq, cents){
+  /* ══════════════════════════════════════════
+     弹错弦检测
+
+     锁定了某根弦（用户点了它），但实测音高更接近另一根 ——
+     这时不应该继续显示「偏离 47 音分」，而应该直接说弹的是哪根。
+     学生最容易在这里困惑：以为琴严重不准，其实是拨错了弦。
+
+     判定两道门槛：
+       1. 另一根弦离得更近，且比目标弦好至少 WRONG_RATIO 倍
+          （收紧一点，避免弦振动不稳时来回误报）
+       2. 连续命中 WRONG_HOLD 帧才确认（防起音的瞬态误判）
+     ══════════════════════════════════════════ */
+  const WRONG_RATIO = 4.0;    /* 音分差多少倍才算「明显更接近」 */
+  const WRONG_HOLD  = 3;      /* 连续几帧确认 */
+
+  let wrongId = null, wrongN = 0;
+
+  /* 找比锁定弦更接近实测音高的那根；没有则返回 null */
+  function findWrongString(freq, locked){
+    if (mode === 'piano') return null;   /* 钢琴不用这个概念 */
+    const strings = INSTRUMENTS[mode].strings;
+
+    const dLocked = Math.abs(1200 * Math.log2(freq / getFreq(strings[locked].midi)));
+    let best = -1, bestC = Infinity;
+    for (let i = 0; i < strings.length; i++){
+      if (i === locked) continue;
+      const c = Math.abs(1200 * Math.log2(freq / getFreq(strings[i].midi)));
+      if (c < bestC){ bestC = c; best = i; }
+    }
+    /* 必须明显比锁定弦近 */
+    if (best >= 0 && bestC * WRONG_RATIO < dLocked) return best;
+    return null;
+  }
+
+  function resetWrongString(){
+    wrongId = null; wrongN = 0;
+    centsEl.classList.remove('wrong');
+    noteEl.classList.remove('wrong');
+  }
+
+  function updateDisplay(displayId, freq, cents, wrongArg, rawFreq){
     const clamped = Math.max(-50, Math.min(50, cents));
     needleTarget = clamped * G_DEG_PER_CENT;
     const absC = Math.abs(cents);
     const ok = absC <= IN_TUNE;
-    appEl.classList.toggle('tuning-ok', ok);
+
+    /* 弹错弦：用 processPitch 传来的判定（基于未折叠的原始频率） */
+    const wrong = wrongArg;
+    if (wrong !== null && wrong !== undefined){
+      wrongN++;
+      wrongId = wrong;
+    } else {
+      wrongN = 0;
+      wrongId = null;
+    }
+    const isWrong = (wrongId !== null && wrongN >= WRONG_HOLD);
+
+    appEl.classList.toggle('tuning-ok', ok && !isWrong);
+    appEl.classList.toggle('wrong-string', isWrong);
+    setNeedleFaded(isWrong);
 
     let displayName, displayOct;
     if (mode === 'piano'){
@@ -2187,12 +2286,37 @@
       '<span class="oct">' + displayOct + '</span>';
     /* 有音名了：回到「音名居中 + 音分/赫兹固定在下方」的布局 */
     gaugeOverlay.classList.remove('idle');
-    freqEl.textContent = freq.toFixed(2) + ' Hz';
-    if (ok){ centsEl.textContent = '准音'; centsEl.className = 'cents ok'; }
-    else if (cents > 0){ centsEl.textContent = '+' + cents.toFixed(0) + '¢  偏高'; centsEl.className = 'cents high'; }
-    else { centsEl.textContent = Math.abs(cents).toFixed(0) + '¢  偏低'; centsEl.className = 'cents low'; }
+    /* 弹错时显示「真实测到的频率」，不是折叠后的值 ——
+       折叠是为了让指针走到合理位置，但报给用户的数字应该诚实。 */
+    freqEl.textContent = rawFreq.toFixed(2) + ' Hz';
+
+    if (isWrong){
+      /* 弹错了：不显示音分，直接说这是哪根弦 */
+      const ws = INSTRUMENTS[mode].strings[wrongId];
+      const ls = INSTRUMENTS[mode].strings[lockedKey];
+      centsEl.textContent = '这是 ' + ws.num + ' 弦 ' + ws.name + ws.oct +
+                            '，不是 ' + ls.num + ' 弦 ' + ls.name + ls.oct;
+      centsEl.className = 'cents wrong';
+      noteEl.classList.add('wrong');
+    } else if (ok){
+      noteEl.classList.remove('wrong');
+      centsEl.textContent = '准音'; centsEl.className = 'cents ok';
+    }
+    else if (cents > 0){
+      noteEl.classList.remove('wrong');
+      centsEl.textContent = '+' + cents.toFixed(0) + '¢  偏高'; centsEl.className = 'cents high';
+    }
+    else {
+      noteEl.classList.remove('wrong');
+      centsEl.textContent = Math.abs(cents).toFixed(0) + '¢  偏低'; centsEl.className = 'cents low';
+    }
     activeKey = displayId;
     updateButtons();
+
+    /* 弹错时：把检测到的那根弦按钮也标一下，方便对照 */
+    stringBtns.forEach(function(b, i){
+      b.classList.toggle('hint-wrong', isWrong && i === wrongId);
+    });
   }
 
   /* 监听中的提示文案
@@ -2220,6 +2344,9 @@
     displayedId = null; candidateId = null; candidateN = 0;
     activeKey = lockedKey;
     appEl.classList.remove('tuning-ok');
+    appEl.classList.remove('wrong-string');
+    resetWrongString();
+    stringBtns.forEach(function(b){ b.classList.remove('hint-wrong'); });
     updateButtons();
   }
 
@@ -2227,6 +2354,11 @@
     freqHistory = [];
     displayedId = null; candidateId = null; candidateN = 0;
     smoothCents = 0; needleVel = 0; needleTarget = 0;
+    resetWrongString();
+    appEl.classList.remove('wrong-string');
+    if (typeof stringBtns !== 'undefined' && stringBtns.length){
+      stringBtns.forEach(function(b){ b.classList.remove('hint-wrong'); });
+    }
   }
 
   /* 指针物理的一步积分：只算角度，不碰 DOM */
@@ -2244,6 +2376,8 @@
   }
 
   /* 把当前角度画到 SVG 上 */
+  let needleFaded = false;
+
   function paintNeedle(){
     const rad = needleAngle * Math.PI / 180;
     const rTip = G_R - 5;
@@ -2253,6 +2387,22 @@
     needleLine.setAttribute('y2', y.toFixed(2));
     needleTip.setAttribute('cx', x.toFixed(2));
     needleTip.setAttribute('cy', y.toFixed(2));
+  }
+
+  /* 弹错弦时把指针隐掉
+     为什么不用 CSS：stroke 是 JS 写的内联属性，样式表的规则压不过它。
+     直接改属性最可靠，用 CSS transition 补上淡出过程。 */
+  function setNeedleFaded(faded){
+    if (faded === needleFaded) return;
+    needleFaded = faded;
+    /* 设在 <g> 上：里面只有 line + tip，opacity 同时作用到两者，
+       而且 <g> 自身没有 stroke/fill 属性来跟 CSS 打架。
+
+       不做 transition —— 弹错弦是「纠正性提示」，瞬时切换更清楚，
+       也能避免动画在弱性能设备上拖慢反馈。 */
+    const g = document.getElementById('needle');
+    if (!g) return;
+    g.style.opacity = faded ? '0.12' : '1';
   }
 
   function updateNeedle(ts){
