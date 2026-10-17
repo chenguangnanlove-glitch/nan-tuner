@@ -359,6 +359,48 @@
     position:static;margin-top:5px;
   }
 
+  /* ── 待机呼吸 ──
+     不往页面里加任何新图形，只让现成的提示文字自己慢慢明暗。
+     4.8 秒一轮 —— 慢到不抢注意力，但看得出页面是活的。 */
+  .gauge-overlay.idle .cents{
+    animation:idleBreath 4.8s ease-in-out infinite;
+  }
+  @keyframes idleBreath{
+    0%,100%{ opacity:.62 }
+    50%    { opacity:1    }
+  }
+
+  /* ── 监听波纹 ──
+     两层极淡的圆环，从文字位置向外缓缓散开。
+     圆心已有呼吸光点，这里只在监听时出现，与待机区分开。 */
+  .listen-wave{
+    position:absolute;left:50%;top:50%;
+    width:60px;height:60px;margin:-30px 0 0 -30px;
+    border-radius:50%;
+    border:1px solid rgba(var(--success-rgb),.22);
+    pointer-events:none;display:none;
+    animation:listenWave 3.6s ease-out infinite;
+  }
+  .listen-wave:nth-of-type(2){ animation-delay:1.8s }
+  .app.listening .listen-wave{ display:block }
+  @keyframes listenWave{
+    0%  { transform:scale(1);    opacity:.42 }
+    75% { opacity:.05 }
+    100%{ transform:scale(1.5);  opacity:0 }
+  }
+
+  /* 监听中的三个点：逐个亮，看得出程序在跑 */
+  .cents .dots span{
+    opacity:.28;
+    animation:dotPulse 1.5s ease-in-out infinite;
+  }
+  .cents .dots span:nth-child(2){ animation-delay:.2s }
+  .cents .dots span:nth-child(3){ animation-delay:.4s }
+  @keyframes dotPulse{
+    0%,70%,100%{ opacity:.26 }
+    32%        { opacity:1   }
+  }
+
   /* 音量条：16 格分段刻度（与节拍页同款）
      高度与间距跟节拍页一致，切页时不跳。 */
   .level-row{
@@ -1212,9 +1254,13 @@
       <!-- 音名叠层 -->
       <div class="gauge-overlay idle">
         <div class="note" id="noteName"></div>
-        <div class="cents" id="centsText">点击开始</div>
+        <div class="cents" id="centsText">轻触开始</div>
         <div class="freq-line" id="freqText"></div>
       </div>
+
+      <!-- 监听波纹：只在开始调音后显示（CSS 靠 .app.listening 控制） -->
+      <span class="listen-wave"></span>
+      <span class="listen-wave"></span>
     </div>
 
     <div class="strobe-view" id="strobeView">
@@ -1664,7 +1710,7 @@
     }
     hintText.innerHTML = inst.hint;
     clearDisplay();
-    centsEl.textContent = running ? '拨响或弹奏一个音…' : '轻触开始';
+    setListeningText();
     centsEl.className = 'cents';
     updateButtons();
   }
@@ -2053,12 +2099,25 @@
     updateButtons();
   }
 
+  /* 监听中的提示文案
+     不用「…」字符（在等宽字体下会缩成一团），
+     而是三个点各自带相位、由 CSS 依次亮起 —— 让人看得出程序在跑。 */
+  function setListeningText(){
+    if (!running){
+      centsEl.textContent = '轻触开始';
+      return;
+    }
+    centsEl.innerHTML =
+      '拨响一个音<span class="dots">' +
+      '<span>.</span><span>.</span><span>.</span></span>';
+  }
+
   function clearDisplay(){
     /* 不再画破折号占位 —— 84px 的横杠很抢眼。
        没有音名时切回 idle：提示文字回到圆心居中。 */
     noteEl.innerHTML = '';
     gaugeOverlay.classList.add('idle');
-    centsEl.textContent = running ? '拨响一个音…' : '轻触开始';
+    setListeningText();
     centsEl.className = 'cents';
     freqEl.textContent = '';
     needleTarget = 0; smoothCents = 0;
@@ -2199,11 +2258,12 @@
       resetSmoothing();
       micStatus.classList.add('on');
       micText.textContent = '监听中';
+      appEl.classList.add('listening');   /* 开启监听波纹 */
       startBtn.disabled = false;
       startBtn.textContent = '停止';
       startBtn.classList.add('stop');
       clearDisplay();
-      centsEl.textContent = '拨响一个音…';
+      setListeningText();
       requestAnimationFrame(() => {
         resizeStrobe();
         requestAnimationFrame(loop);
@@ -2224,6 +2284,7 @@
       startBtn.textContent = '开始调音';
       micStatus.classList.remove('on');
       micText.textContent = '未启动';
+      appEl.classList.remove('listening');   /* 启动失败也别留波纹 */
       alert(msg);
     }
   }
@@ -2236,6 +2297,7 @@
     paintLevel(0);
     micStatus.classList.remove('on');
     micText.textContent = '已停止';
+    appEl.classList.remove('listening');   /* 关闭监听波纹 */
     startBtn.textContent = '开始调音';
     startBtn.classList.remove('stop');
     clearDisplay();
