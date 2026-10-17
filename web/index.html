@@ -8,27 +8,28 @@
 <title>始信音乐 · 调音器</title>
 <style>
   :root{
-    --bg:#0a0a0a;
-    --surface:#161616;
-    --surface-2:#1f1f1f;
-    --surface-3:#2b2b2b;
+    --bg:#0e0c0a;
+    --surface:#1a1815;
+    --surface-2:#211f1b;
+    --surface-3:#2b2823;
     --border:rgba(240,235,227,.06);
     --border-2:rgba(240,235,227,.10);
-    --text:#f0f0f0;
-    --text-2:#909090;
-    --text-3:#5e5e5e;
+    --text:#f0ebe3;
+    --text-2:#948a7d;
+    --text-3:#5e5750;
 
     /* 主题色（由 tools/ui_tool.py 生成）*/
-    --accent:#a0a0a0;
-    --accent-light:#bababa;
-    --accent-soft:rgba(160,160,160,.13);
-    --accent-rgb:160,160,160;
-    --accent-light-rgb:186,186,186;
+    --accent:#d4a574;
+    --accent-light:#e3bd93;
+    --accent-soft:rgba(212,165,116,.13);
+    --accent-rgb:212,165,116;
+    --accent-light-rgb:227,189,147;
 
-    --success:#7fc87f;
-    --success-rgb:127,200,127;
-    --warn:#dcb050;
-    --warn-rgb:220,176,80;
+    /* 「对音准」用同色系更亮的一层金 —— 不再用绿色 */
+    --success:#f0cb8c;
+    --success-rgb:240,203,140;
+    --warn:#e0a458;
+    --warn-rgb:224,164,88;
 
     /* 品牌金色：只用在 logo 与品牌名上 */
     --gold:#d4a574;
@@ -118,7 +119,7 @@
     background:#3d3830;transition:all .3s;
   }
   .mic.on .dot{background:var(--success);box-shadow:0 0 6px var(--success)}
-  .mic.on{color:#b8d4a4}
+  .mic.on{color:#e3c9a0}
 
   .settings-btn{
     appearance:none;border:0;background:transparent;
@@ -243,7 +244,10 @@
     flex:none;
     display:flex;flex-direction:column;
     min-height:0;
-    margin:48px 0 0;
+    /* 校准：整圆环直径 310px，与节拍器同尺寸。
+       390x844 实测：圆心 395、弦按钮 624、音量 695、提示 738，
+       与节拍页逐轴重合。 */
+    margin:80px 0 0;
   }
 
   /* ============ 表盘区（含音名） ============ */
@@ -251,9 +255,12 @@
     position:relative;
     width:100%;
     margin:0 auto;
+    cursor:pointer;          /* 点它开始/停止 */
   }
   .gauge-svg{
-    display:block;width:100%;height:auto;overflow:visible;
+    display:block;
+    width:100%;max-width:310px;height:auto;
+    margin:0 auto;overflow:visible;
   }
   #needleDot{
     transition:cx .08s linear, cy .08s linear, fill .25s, r .25s;
@@ -265,7 +272,7 @@
   .gauge-overlay{
     position:absolute;
     left:0;right:0;
-    top:58%;
+    top:50%;
     transform:translateY(-50%);
     display:flex;flex-direction:column;
     align-items:center;justify-content:center;
@@ -279,6 +286,7 @@
     transition:color .3s;
     font-variant-numeric:tabular-nums;
     display:flex;align-items:baseline;justify-content:center;
+    min-height:72px;   /* 待机时没有音名，也占住高度不跳 */
   }
   .note .letter{font-size:72px;letter-spacing:-.04em}
   .note .oct{
@@ -315,24 +323,30 @@
     opacity:.7;
   }
 
-  /* 音量条：标签在上、条在下，条拉满整宽（与乐器按钮、弦按钮左右对齐） */
+  /* 音量条：16 格分段刻度（与节拍页同款）
+     高度与间距跟节拍页一致，切页时不跳。 */
   .level-row{
     display:flex;flex-direction:column;align-items:stretch;gap:6px;
-    margin:30px 0 0;flex:none;
+    width:min(84%, 312px);
+    margin:19px auto 0;flex:none;
   }
   .level-label{
     font-size:10px;font-weight:500;color:var(--text-3);
     letter-spacing:.16em;flex:none;
   }
-  .level-bar{
-    height:8px;background:var(--surface-2);
-    border-radius:4px;overflow:hidden;
+  .level-seg{
+    display:flex;align-items:center;gap:8px;
+    width:100%;height:20px;
+    -webkit-tap-highlight-color:transparent;
   }
-  .level-fill{
-    height:100%;width:0%;
-    background:rgba(var(--success-rgb),.8);border-radius:4px;
-    transition:width .14s linear;
+  .level-seg i{
+    flex:1 1 0;min-width:0;
+    height:20px;border-radius:6px;
+    background:var(--surface-3);
+    transition:background .12s ease-out;
   }
+  .level-seg i.on{ background:var(--accent) }
+  .level-seg i.tuned{ background:var(--success) }
 
   /* 频闪视图 */
   .strobe-view{display:none}
@@ -346,7 +360,7 @@
   }
 
   /* ============ 弦按钮 ============ */
-  .target-area{margin:66px 0 0;flex:none}
+  .target-area{margin:0 0 0;flex:none}
   /* 弦按钮整体坐在「钢琴琴键」的高度上（524-580）。
      钢琴的八度行占 482-514，弦乐此处留白 42px ——
      于是两种模式的按钮/琴键中线完全一致。 */
@@ -358,33 +372,57 @@
     border:1px solid var(--border);
     background:transparent;
     border-radius:13px;
-    padding:11px 2px 10px;
-    display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:0 2px 9px;
+    display:flex;flex-direction:column;align-items:center;
+    overflow:hidden;
     transition:all .22s ease;
   }
   .sbtn:active{transform:scale(.96)}
+  /* 弦：按真实弦径画的粗细，两端渐隐 —— 像一根真的弦 */
+  .wirewrap{
+    width:100%;height:11px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .wire{
+    width:88%;border-radius:2px;background:var(--text-3);
+    -webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 16%,#000 84%,transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0%,#000 16%,#000 84%,transparent 100%);
+    transition:background .22s, box-shadow .22s;
+  }
   .sbtn .num{
     font-size:10px;font-weight:500;color:var(--text-3);
-    letter-spacing:.04em;line-height:1;
+    letter-spacing:.04em;line-height:1;margin-top:5px;
+    transition:color .22s;
   }
   .sbtn .nm{
     font-size:19px;font-weight:500;line-height:1;
     color:var(--text-2);transition:color .22s;
     letter-spacing:.01em;
+    display:flex;align-items:baseline;margin-top:8px;
+  }
+  /* 八度下标：E₂ 与 E₄ 一眼分得开 */
+  .sbtn .nm i{
+    font-style:normal;font-size:11px;font-weight:400;
+    color:var(--text-3);margin-left:1.5px;
+    transition:color .22s;
   }
   .sbtn.active{
     border-color:rgba(var(--accent-rgb),.5);
     background:var(--accent-soft);
   }
   .sbtn.active .nm{color:var(--text)}
+  .sbtn.active .nm i{color:rgba(var(--accent-rgb),.8)}
   .sbtn.active .num{color:rgba(var(--accent-rgb),.75)}
+  .sbtn.active .wire{background:var(--accent);box-shadow:0 0 7px rgba(var(--accent-rgb),.55)}
 
   .sbtn.in-tune{
-    border-color:rgba(var(--success-rgb),.5);
-    background:rgba(var(--success-rgb),.08);
+    border-color:rgba(var(--success-rgb),.6);
+    background:rgba(var(--success-rgb),.10);
   }
   .sbtn.in-tune .nm{color:var(--success)}
-  .sbtn.in-tune .num{color:rgba(var(--success-rgb),.75)}
+  .sbtn.in-tune .nm i{color:rgba(var(--success-rgb),.82)}
+  .sbtn.in-tune .num{color:rgba(var(--success-rgb),.74)}
+  .sbtn.in-tune .wire{background:var(--success);box-shadow:0 0 10px rgba(var(--success-rgb),.65)}
 
   /* 钢琴 */
   .piano-area{display:none}
@@ -453,7 +491,7 @@
   }
   .pk-white .pkey.in-tune{
     background:var(--success);
-    color:#10240d;
+    color:#2a1f0d;
   }
   /* 黑键 */
   .pk-black .pkey{
@@ -478,11 +516,15 @@
   }
   .pk-black .pkey.in-tune{
     background:var(--success);
-    color:#10240d;
+    color:#2a1f0d;
   }
 
-  /* ============ 主按钮 ============ */
-  .start{
+  /* ============ 主按钮 ============
+     已停用：开始/停止改由点击圆环触发。
+     元素保留是因为 start()/stop() 内部仍会读写它的状态，
+     彻底删除会连带改十几处逻辑 —— 隐藏是风险最小的做法。 */
+  .start{ display:none }
+  .start-legacy{
     width:100%;appearance:none;border:0;cursor:pointer;
     font-family:inherit;
     margin-top:32px;
@@ -510,7 +552,7 @@
     text-align:center;
     font-size:11px;font-weight:400;
     color:var(--text-3);
-    margin-top:8px;
+    margin-top:14px;
     letter-spacing:.04em;
     line-height:1.6;
     flex:none;
@@ -518,18 +560,40 @@
   .hint b{color:var(--text-2);font-weight:500}
 
   /* 小屏高度时压缩 */
-  @media (max-height:700px){
-    .note .letter{font-size:60px}
-    .note .oct{font-size:20px}
-    .header{margin-bottom:26px}
-    .center{margin-top:26px}
-    .target-area{margin-top:34px}
+  /* ── 小屏适配 ──
+     圆环尺寸断点与节拍器完全一致（265 / 210 / 160 / 132），
+     否则切页时两个圆环会一大一小地跳。
+     弦按钮的 padding 不要在矮屏改动 —— 顶部那条弦会贴边。 */
+  @media (max-height:780px){
+    .gauge-svg{ max-width:265px }
+    .note .letter{font-size:64px}
+    .note .oct{font-size:21px}
+    .center{margin-top:61px}
+    .target-area{margin-top:0}
     .strings{margin-top:26px}
     .level-row{margin-top:16px}
-    .sbtn{padding:9px 2px 8px}
+    .hint{margin-top:12px}
+  }
+  @media (max-height:660px){
+    .gauge-svg{ max-width:210px }
+    .note .letter{font-size:56px}
+    .note .oct{font-size:18px}
+    .center{margin-top:40px}
+    .target-area{margin-top:0}
+    .strings{margin-top:16px}
+    .level-row{margin-top:12px}
+    .hint{margin-top:10px}
     .sbtn .nm{font-size:17px}
-    .start{margin-top:22px;padding:13px}
-    #strobeCanvas{height:180px}
+  }
+  @media (max-height:560px){
+    .gauge-svg{ max-width:160px }
+    .note .letter{font-size:46px}
+    .center{margin-top:26px}
+  }
+  @media (max-height:430px){
+    .gauge-svg{ max-width:132px }
+    .note .letter{font-size:38px}
+    .center{margin-top:18px}
   }
 
   /* ===== 手机 App 下载入口（由 tools/build_web.py 自动插入） ===== */
@@ -1080,20 +1144,19 @@
   <!-- 中间区域：表盘 + 音量 -->
   <div class="center">
     <div class="gauge-block" id="gaugeBlock">
-      <svg class="gauge-svg" viewBox="0 0 400 240" xmlns="http://www.w3.org/2000/svg">
-        <!-- 主弧：完整半圆（-90° → +90°） -->
-        <path class="gauge-arc"
-              d="M 28 208 A 172 172 0 0 1 372 208"
-              fill="none" stroke="rgba(240,235,227,.10)"
-              stroke-width="1.5" stroke-linecap="round"/>
-        <!-- 准音区（±5 音分） -->
-        <path d="M 173.1 38.12 A 172 172 0 0 1 226.9 38.12"
-              fill="none" stroke="rgba(var(--success-rgb),.5)"
-              stroke-width="2.5" stroke-linecap="round"/>
+      <svg class="gauge-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+        <!-- 整圆外壳：与节拍器的圆环同尺寸 -->
+        <circle class="gauge-arc" cx="150" cy="150" r="131"
+                fill="none" stroke="rgba(240,235,227,.09)"
+                stroke-width="1.5"/>
+        <!-- 准音区（±5 音分 = ±9°）-->
+        <path d="M 129.51 20.61 A 131 131 0 0 1 170.49 20.61"
+              fill="none" stroke="rgba(var(--success-rgb),.42)"
+              stroke-width="3" stroke-linecap="round"/>
         <!-- 刻度 -->
         <g id="ticks"></g>
         <!-- 滑动圆点 -->
-        <circle id="needleDot" cx="200" cy="36" r="6"
+        <circle id="needleDot" cx="150" cy="19" r="6"
                 style="fill:var(--accent)" stroke="none"/>
       </svg>
 
@@ -1123,10 +1186,10 @@
     </div>
   </div>
 
-  <!-- 音量条：在弦按钮/琴键下方，与节拍页拍点同轴 -->
+  <!-- 音量条：16 格分段刻度，与节拍页同款 -->
   <div class="level-row">
     <span class="level-label">音量</span>
-    <div class="level-bar"><div class="level-fill" id="levelFill"></div></div>
+    <div class="level-seg" id="levelSeg"></div>
   </div>
 
   <button class="start" id="startBtn">开始调音</button>
@@ -1247,6 +1310,10 @@
   const INSTRUMENTS = {
     guitar: {
       type: 'strings',
+      /* gauge：真实弦径（英寸）—— 10-46 套装。
+         用于弦按钮顶部的粗细，低音粗、高音细。 */
+      gauge: [0.046, 0.036, 0.026, 0.017, 0.013, 0.010],
+      prefix: 'guitar_',
       strings: [
         { num: 6, name: 'E', oct: 2, midi: 40 },
         { num: 5, name: 'A', oct: 2, midi: 45 },
@@ -1260,6 +1327,9 @@
     },
     ukulele: {
       type: 'strings',
+      /* gauge：high-G 套装。3 弦 C 最粗 —— 这是尤克里里的真实情况。 */
+      gauge: [0.024, 0.031, 0.026, 0.021],
+      prefix: 'uke_',
       strings: [
         { num: 4, name: 'G', oct: 4, midi: 67 },
         { num: 3, name: 'C', oct: 4, midi: 60 },
@@ -1271,6 +1341,7 @@
     },
     piano: {
       type: 'piano',
+      prefix: 'piano_',
       detectRange: [65, 2100],
       hint: '按钢琴键可听标准音 · 弹奏自动识别',
     },
@@ -1294,7 +1365,7 @@
   const STROBE_STRIPE  = 12;
 
   /* 表盘几何：完整半圆（-90° → +90°） */
-  const G_CX = 200, G_CY = 208, G_R = 172;
+  const G_CX = 150, G_CY = 150, G_R = 131;
   const G_DEG_PER_CENT = 1.8;   /* 1 音分 = 1.8°（满量程 ±50 音分 = ±90°） */
 
   const appEl       = document.getElementById('app');
@@ -1313,7 +1384,7 @@
   const startBtn    = document.getElementById('startBtn');
   const micStatus   = document.getElementById('micStatus');
   const micText     = document.getElementById('micText');
-  const levelFill   = document.getElementById('levelFill');
+  const levelSegEl  = document.getElementById('levelSeg');
   const hintText    = document.getElementById('hintText');
   const a4DownEl    = document.getElementById('a4Down');
   const a4UpEl      = document.getElementById('a4Up');
@@ -1388,7 +1459,7 @@
       const rad = deg * Math.PI / 180;
       const isMain = (c === 0);
       const isMid  = (Math.abs(c) === 25);
-      const rIn  = G_R - (isMain ? 18 : (isMid ? 13 : 7));
+      const rIn  = G_R - (isMain ? 14 : (isMid ? 10 : 5));
       const rOut = G_R;
       const x1 = G_CX + rIn * Math.sin(rad);
       const y1 = G_CY - rIn * Math.cos(rad);
@@ -1407,6 +1478,14 @@
   })();
 
   let stringBtns = [];
+  /* 弦径（英寸）→ 像素：2.5px（最细）到 8.0px（最粗），组内归一化 */
+  function gaugeToPx(g, arr){
+    if (!arr || !arr.length) return 4.5;
+    const lo = Math.min.apply(null, arr), hi = Math.max.apply(null, arr);
+    if (hi === lo) return 4.5;
+    return Math.round((2.5 + (g - lo) / (hi - lo) * 5.5) * 100) / 100;
+  }
+
   function buildStringButtons(){
     stringsEl.innerHTML = '';
     stringBtns = [];
@@ -1417,8 +1496,11 @@
       const b = document.createElement('button');
       b.className = 'sbtn';
       b.type = 'button';
-      b.innerHTML = '<span class="num">' + s.num + '弦</span>' +
-                    '<span class="nm">' + s.name + '</span>';
+      const px = gaugeToPx(inst.gauge[i], inst.gauge);
+      b.innerHTML =
+        '<div class="wirewrap"><div class="wire" style="height:' + px + 'px"></div></div>' +
+        '<span class="nm">' + s.name + '<i>' + s.oct + '</i></span>' +
+        '<span class="num">' + s.num + '弦</span>';
       b.addEventListener('click', () => onStringClick(i));
       stringsEl.appendChild(b);
       stringBtns.push(b);
@@ -1506,7 +1588,7 @@
     }
     hintText.innerHTML = inst.hint;
     clearDisplay();
-    centsEl.textContent = running ? '拨响或弹奏一个音…' : '点击开始';
+    centsEl.textContent = running ? '拨响或弹奏一个音…' : '轻触开始';
     centsEl.className = 'cents';
     updateButtons();
   }
@@ -1580,7 +1662,12 @@
     }
     lockedKey = i; activeKey = i;
     resetSmoothing(); updateButtons();
-    await playReference(getFreq(INSTRUMENTS[mode].strings[i].midi));
+    const inst = INSTRUMENTS[mode];
+    const s = inst.strings[i];
+    await playReference(getFreq(s.midi), 1.4, {
+      key: inst.prefix + s.name.replace('#', 's') + s.oct,
+      rate: 1
+    });
   }
 
   async function onPianoKeyClick(pc){
@@ -1591,7 +1678,29 @@
     }
     lockedKey = midi; activeKey = midi;
     resetSmoothing(); updateButtons();
-    await playReference(getFreq(midi));
+    await playReference(getFreq(midi), 1.4, nearestPianoSample(midi));
+  }
+
+  /* 音量条：16 格，按电平点亮（与节拍页同一套视觉） */
+  const LEVEL_SEGS = 16;
+  let levelSegItems = [];
+
+  function buildLevelSeg(){
+    levelSegEl.innerHTML = '';
+    levelSegItems = [];
+    for (let i = 0; i < LEVEL_SEGS; i++){
+      const s = document.createElement('i');
+      levelSegEl.appendChild(s);
+      levelSegItems.push(s);
+    }
+  }
+
+  /* 传 0-100 的电平，点亮相应格数 */
+  function paintLevel(v){
+    const n = Math.round(Math.max(0, Math.min(100, v)) / 100 * LEVEL_SEGS);
+    for (let i = 0; i < LEVEL_SEGS; i++){
+      levelSegItems[i].classList.toggle('on', i < n);
+    }
   }
 
   /* 给可能卡住的异步操作加超时。
@@ -1619,9 +1728,89 @@
     return audioCtx;
   }
 
-  async function playReference(freq, duration){
+  /* ══════════════════════════════════════════════
+     真实乐器录音
+     采样放在 audio/ 目录（与页面同源）。
+     加载失败（如用 file:// 直接打开）就回退到下面的合成音。
+     ══════════════════════════════════════════════ */
+  const SAMPLE_DIR = 'audio/';
+  const sampleBufs = {};      /* key → AudioBuffer */
+  const sampleJobs = {};      /* key → Promise */
+
+  /* 钢琴采样点（与 audio/ 里的文件一一对应） */
+  const PIANO_POINTS = [24,30,36,42,48,54,60,66,72,78,84,90,96,102,108];  /* C1 Fs1 … C8 */
+
+  function midiToSampleName(midi){
+    const pc = midi % 12;
+    const oct = Math.floor(midi / 12) - 1;
+    return NOTE_NAMES[pc].replace('#', 's') + oct;
+  }
+
+  /* 找离 midi 最近的采样点，返回 {key, rate}；差太远则返回 null（改用合成音） */
+  function nearestPianoSample(midi){
+    let best = PIANO_POINTS[0], bd = Math.abs(midi - best);
+    for (let i = 1; i < PIANO_POINTS.length; i++){
+      const d = Math.abs(PIANO_POINTS[i] - midi);
+      if (d < bd){ bd = d; best = PIANO_POINTS[i]; }
+    }
+    if (bd > 6) return null;          /* 变调过大会失真，不如用合成音 */
+    return {
+      key: 'piano_' + midiToSampleName(best),
+      rate: Math.pow(2, (midi - best) / 12)
+    };
+  }
+
+  function loadSample(key){
+    if (sampleBufs[key]) return Promise.resolve(sampleBufs[key]);
+    if (sampleJobs[key]) return sampleJobs[key];
+    sampleJobs[key] = (async () => {
+      try {
+        const ctx = await ensureAudio();
+        const res = await fetch(SAMPLE_DIR + key + '.m4a');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const raw = await res.arrayBuffer();
+        const buf = await ctx.decodeAudioData(raw);
+        sampleBufs[key] = buf;
+        return buf;
+      } catch (e){
+        sampleJobs[key] = null;
+        return null;
+      }
+    })();
+    return sampleJobs[key];
+  }
+
+  /* 播放已缓存的采样；没缓存返回 false */
+  function fireSample(key, rate, dur){
+    const buf = sampleBufs[key];
+    if (!buf || !audioCtx) return false;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    if (rate && Math.abs(rate - 1) > 1e-4) src.playbackRate.value = rate;
+    const g = audioCtx.createGain();
+    g.gain.value = 0.9;
+    src.connect(g);
+    g.connect(audioCtx.destination);
+    src.start();
+    playingRef = true;
+    setTimeout(() => { playingRef = false; }, ((dur || 1.4) + 0.15) * 1000);
+    return true;
+  }
+
+  /* 演奏一个标准音。
+     sample = { key, rate } 时优先用真实录音。 */
+  async function playReference(freq, duration, sample){
     duration = duration || 1.4;
     const ctx = await ensureAudio();
+
+    if (sample && sample.key){
+      if (fireSample(sample.key, sample.rate, duration)) return;
+      /* 还没缓存：先加载，好了再补放一次 */
+      const buf = await loadSample(sample.key);
+      if (buf && fireSample(sample.key, sample.rate, duration)) return;
+      /* 采样不可用 → 落到下面的合成音 */
+    }
+
     const now = ctx.currentTime;
     const osc1 = ctx.createOscillator();
     osc1.type = 'triangle';
@@ -1758,8 +1947,8 @@
   }
 
   function clearDisplay(){
-    noteEl.innerHTML = '<span class="letter">–</span>';
-    centsEl.textContent = running ? '拨响一个音…' : '点击开始';
+    noteEl.innerHTML = running ? '<span class="letter">–</span>' : '';
+    centsEl.textContent = running ? '拨响一个音…' : '轻触开始';
     centsEl.className = 'cents';
     freqEl.textContent = '';
     needleTarget = 0; smoothCents = 0;
@@ -1822,7 +2011,7 @@
       const rms = Math.sqrt(sum / timeBuf.length);
       const targetLv = Math.min(100, Math.sqrt(rms) * 380);
       smoothLevel += (targetLv - smoothLevel) * 0.35;
-      levelFill.style.width = smoothLevel.toFixed(0) + '%';
+      paintLevel(smoothLevel);
       if (rms < RMS_MIN){
         missFrames++;
         freqHistory = [];
@@ -1921,17 +2110,25 @@
     if (audioCtx){ try { audioCtx.close(); } catch(e){} audioCtx = null; }
     analyser = null;
     smoothLevel = 0;
-    levelFill.style.width = '0%';
+    paintLevel(0);
     micStatus.classList.remove('on');
     micText.textContent = '已停止';
     startBtn.textContent = '开始调音';
     startBtn.classList.remove('stop');
     clearDisplay();
-    centsEl.textContent = '点击开始';
+    centsEl.textContent = '轻触开始';
   }
 
   startBtn.addEventListener('click', () => {
     if (running) stop(); else start();
+  });
+
+  /* 圆环点按 = 开始 / 停止（取代底部按钮）
+     startBtn 已隐藏，但它仍是状态与文字的唯一来源，
+     这里只把点击转过去，不改动 start()/stop() 的任何逻辑。 */
+  gaugeBlock.addEventListener('click', () => {
+    if (startBtn.disabled) return;        /* 「启动中」时忽略重复点击 */
+    startBtn.click();
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -1944,6 +2141,7 @@
 
   buildStringButtons();
   buildPianoKeys();
+  buildLevelSeg();
   updateOctaveDisplay();
   updateA4Display();
   updateButtons();

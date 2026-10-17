@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 
 BASE = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -38,6 +39,10 @@ SRC = os.path.join(os.path.dirname(BASE), "index tuner.html")   # 桌面上的�
 OUT_WEB = os.path.join(BASE, "web", "index.html")
 OUT_OFFLINE = os.path.join(BASE, "android", "app", "src", "main", "assets", "offline.html")
 STATE = os.path.join(BASE, "tools", ".build-state.json")
+
+# 乐器录音：网页版和 APK 各存一份
+AUDIO_SRC = os.path.join(BASE, "web", "audio")
+AUDIO_APP = os.path.join(BASE, "android", "app", "src", "main", "assets", "audio")
 
 GREEN, RED, YELLOW, DIM, BOLD, RESET = (
     "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[1m", "\033[0m"
@@ -249,9 +254,30 @@ def generate_offline_only() -> int:
     offline_html = strip_app_row(web_html)
     write(OUT_OFFLINE, offline_html)
 
+    # 乐器录音同步到 APK assets ——
+    # offline.html 从 appassets.androidplatform.net/assets/ 加载，
+    # 代码里 fetch('audio/xxx.m4a') 会解析成 /assets/audio/xxx.m4a，
+    # 所以音频也必须放进 assets/audio/，否则离线时只剩合成音。
+    audio_note = ""
+    n = 0
+    if os.path.isdir(AUDIO_SRC):
+        os.makedirs(AUDIO_APP, exist_ok=True)
+        for fn in sorted(os.listdir(AUDIO_SRC)):
+            if not fn.lower().endswith((".m4a", ".mp3", ".ogg", ".wav")):
+                continue
+            src_f = os.path.join(AUDIO_SRC, fn)
+            dst_f = os.path.join(AUDIO_APP, fn)
+            if (not os.path.isfile(dst_f)
+                    or os.path.getsize(src_f) != os.path.getsize(dst_f)
+                    or os.path.getmtime(src_f) > os.path.getmtime(dst_f)):
+                shutil.copy2(src_f, dst_f)
+            n += 1
+        audio_note = f"  {GREEN}→{RESET} 乐器录音   assets/audio/  {DIM}{n} 个文件{RESET}"
+
     state = load_state()
     state["out_web"] = sha(web_html)
     state["out_offline"] = sha(offline_html)
+    state["audio_files"] = n
     state["generated_at"] = __import__("datetime").datetime.now().isoformat(timespec="seconds")
     save_state(state)
 
@@ -260,6 +286,8 @@ def generate_offline_only() -> int:
     print(f"  来源       web/index.html  {DIM}{len(web_html):,} 字符{RESET}")
     print(f"  {GREEN}→{RESET} 离线版     android/app/src/main/assets/offline.html")
     print(f"            {DIM}{len(offline_html):,} 字符（已移除下载入口）{RESET}")
+    if audio_note:
+        print(audio_note)
     return 0
 
 
