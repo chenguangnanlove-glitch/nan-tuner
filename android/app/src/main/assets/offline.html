@@ -90,13 +90,13 @@
     position:relative;   /* 设置面板以它为锚点做浮层 */
   }
   .brand{
-    display:flex;flex-direction:column;align-items:center;gap:3px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
     flex:none;
   }
-  .brand-mark{width:30px;height:30px;flex:none;display:block}
+  .brand-mark{width:38px;height:38px;flex:none;display:block}
   .brand-text{display:flex;flex-direction:column;align-items:center}
   .brand-cn{
-    font-size:9px;font-weight:500;line-height:1;
+    font-size:11px;font-weight:500;line-height:1;
     letter-spacing:.06em;color:var(--gold);
     white-space:nowrap;
   }
@@ -110,12 +110,12 @@
 
   .mic{
     display:flex;align-items:center;gap:4px;
-    font-size:8px;font-weight:500;color:var(--text-3);
+    font-size:10px;font-weight:500;color:var(--text-3);
     letter-spacing:.02em;
     order:2;
   }
   .mic .dot{
-    width:4px;height:4px;border-radius:50%;
+    width:5px;height:5px;border-radius:50%;
     background:#3d3830;transition:all .3s;
   }
   .mic.on .dot{background:var(--success);box-shadow:0 0 6px var(--success)}
@@ -124,7 +124,7 @@
   .settings-btn{
     appearance:none;border:0;background:transparent;
     color:var(--text-2);cursor:pointer;
-    width:30px;height:30px;border-radius:8px;
+    width:36px;height:36px;border-radius:10px;
     display:flex;align-items:center;justify-content:center;
     transition:all .2s;
     padding:0;
@@ -133,7 +133,7 @@
   .settings-btn:active{background:var(--surface-3);transform:scale(.94)}
   .settings-btn.active{color:var(--accent);background:var(--accent-soft)}
   .settings-btn svg{
-    width:16px;height:16px;
+    width:18px;height:18px;
     transition:transform .3s ease;
   }
   .settings-btn.active svg{transform:rotate(60deg)}
