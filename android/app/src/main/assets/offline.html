@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0e0c0a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>始信音乐 · 调音器</title>
+<title>调音·节拍</title>
 <style>
   :root{
     --bg:#0e0c0a;
@@ -677,7 +677,10 @@
     .gauge-svg{ max-width:265px }
     .note .letter{font-size:75px}
     .note .oct{font-size:24px}
-    .center{margin-top:61px}
+    /* 顶部 50px 的固定下边距在各断点里必须一起收，
+       否则矮屏上「50 + 80」这 130px 的死间距会把提示语顶出屏幕。 */
+    .header{margin-bottom:36px}
+    .center{margin-top:55px}
     .target-area{margin-top:0}
     .strings{margin-top:26px}
     .level-row{margin-top:16px}
@@ -687,24 +690,91 @@
     .gauge-svg{ max-width:210px }
     .note .letter{font-size:60px}
     .note .oct{font-size:19px}
-    .center{margin-top:40px}
+    .header{margin-bottom:28px}
+    .center{margin-top:34px}
     .target-area{margin-top:0}
     .strings{margin-top:16px}
     .level-row{margin-top:12px}
     .hint{margin-top:10px}
     .sbtn .nm{font-size:17px}
   }
+  /* 320x568（iPhone SE1）专用：320 宽已经吃满 210 的圆环，
+     高度只剩 568，130px 死间距必须砍到 44 才不会顶出提示语。 */
+  @media (max-height:600px){
+    .header{margin-bottom:20px}
+    .center{margin-top:24px}
+  }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
     .note .letter{font-size:48px}
     .note .oct{font-size:16px}
-    .center{margin-top:26px}
+    .header{margin-bottom:16px}
+    .center{margin-top:20px}
   }
   @media (max-height:430px){
     .gauge-svg{ max-width:132px }
     .note .letter{font-size:38px}
     .note .oct{font-size:13px}
-    .center{margin-top:18px}
+    .header{margin-bottom:10px}
+    .center{margin-top:8px}
+    .strings{margin-top:8px}
+    .level-row{margin-top:8px}
+    .hint{margin-top:6px}
+  }
+
+  /* ── 横屏专用 ──
+     竖屏单栏在 844x390 下会把圆环压到 132px（按钮都难点准），
+     同时 844 的宽度全浪费在两侧。改成左右两栏：
+     左圆环、右弦按钮 + 音量 + 提示。
+     只作用于调音页（节拍页结构不同，另有一套适配）。
+     加 min-aspect-ratio:3/2 是为了排除「窗口被拉成接近正方形」的情况 ——
+     仅靠 orientation:landscape 时，420x420 这种方窗口也会被当成横屏手机，
+     平白切成两栏。真手机横屏 844/390=2.2、667/375=1.8，都远超 1.5。 */
+    @media (orientation: landscape) and (max-height: 520px) and (min-aspect-ratio: 3/2){
+    /* 横屏手机宽度 844，但 min-width:520 的平板规则会把它锁成 460 的居中卡片，
+       844 里近一半是黑边。这里放开成全屏。 */
+    .app{
+      max-width:100%;
+      min-height:100dvh;
+      border:0; border-radius:0;
+      padding:10px 20px calc(10px + env(safe-area-inset-bottom));
+    }
+    #pageTuner.active{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      /* 三行等分：右栏三件（弦 / 音量 / 提示）均分剩余高度，
+         与左栏圆环的视觉重心对齐，不会全挤在上半截。 */
+      grid-template-rows:auto 1fr 1fr 1fr;
+      column-gap:22px;
+      align-items:center;
+    }
+    #pageTuner .mode-tabs{
+      grid-column:1 / -1; grid-row:1;
+      margin:0 auto 2px; max-width:420px; width:100%;
+    }
+    #pageTuner .center{
+      grid-column:1; grid-row:2 / 5;
+      margin-top:0; min-height:0;
+      justify-content:center;      /* 纵向居中，圆环不被顶到上沿 */
+    }
+    /* flex 列里 .gauge-block 默认可压缩，会把 SVG 压出容器被 overflow 裁掉 */
+    #pageTuner .gauge-block{ flex:none }
+    #pageTuner .target-area{ grid-column:2; grid-row:2; align-self:center }
+    #pageTuner .strings{ margin-top:0 }
+    #pageTuner .level-row{
+      grid-column:2; grid-row:3;
+      margin-top:12px; width:100%;
+    }
+    #pageTuner .hint{
+      grid-column:2; grid-row:4;
+      align-self:center; margin-top:0;
+    }
+    /* 56vh 让圆环始终留出上下呼吸；250px 封顶防止平板横屏过大。
+       注意：节拍页在横屏下不能同步放大 —— 单栏结构里圆环每大 1px
+       就多占 1px 高度，放大到 218 会撑破 390 并溢出 69px。
+       节拍页保持 132（不溢出，只是偏小），这是浏览器横屏的次要场景。 */
+    #pageTuner .gauge-svg{ max-width:min(56vh, 250px); margin:0 auto }
+    #pageTuner .header{ margin-bottom:8px }
   }
 
   /* ===== 手机 App 下载入口（由 tools/build_web.py 自动插入） ===== */
@@ -1240,12 +1310,12 @@
 <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon.png">
 <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="始信音乐">
+<meta name="apple-mobile-web-app-title" content="调音·节拍">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="description" content="始信音乐 · 手机调音器：吉他、尤克里里、钢琴调音，精准快速，支持离线使用。">
+<meta name="description" content="调音器 + 节拍器：吉他、尤克里里、钢琴调音，精准快速，可离线使用。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="始信音乐 · 调音器">
-<meta property="og:description" content="精准的手机调音器，支持吉他与尤克里里。">
+<meta property="og:title" content="调音·节拍">
+<meta property="og:description" content="调音 + 打拍子，一个 App 够用。">
 <meta property="og:image" content="/icons/icon-512.png">
 <script src="audio-manifest.js"></script>
 </head>
@@ -1255,15 +1325,26 @@
 
   <div class="header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
-        <circle cx="16" cy="16" r="14.25" stroke="var(--gold)" stroke-width="1.5" fill="none"/>
-        <ellipse cx="12.6" cy="20.4" rx="3.1" ry="2.6" stroke="var(--gold)" stroke-width="1.7" fill="none"/>
-        <path d="M15.7 20.4 V9.8 L23 11.6" stroke="var(--gold)" stroke-width="1.7"
-              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="调音·节拍">
+        <defs>
+          <linearGradient id="brandGrad" x1="4.7" y1="4" x2="27.3" y2="28" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#f6dfb6"/>
+            <stop offset="50%" stop-color="#e0b782"/>
+            <stop offset="100%" stop-color="#c0945e"/>
+          </linearGradient>
+        </defs>
+        <path d="M 16.0 28.0 V 18.83" stroke="url(#brandGrad)" stroke-width="2.0"
+              stroke-linecap="round" opacity=".72"/>
+        <path d="M 16.0 19.17 L 13.33 12.83" stroke="url(#brandGrad)" stroke-width="1.83"
+              stroke-linecap="round" opacity=".92"/>
+        <path d="M 16.0 19.17 L 18.67 12.83" stroke="url(#brandGrad)" stroke-width="1.83"
+              stroke-linecap="round" opacity=".78"/>
+        <path d="M 13.33 14.0 C 9.0 14.0 5.0 10.33 4.67 4.0 C 10.33 4.0 14.33 9.0 13.33 14.0 Z" fill="url(#brandGrad)"/>
+        <path d="M 18.67 14.0 C 23.0 14.0 27.0 10.33 27.33 4.0 C 21.67 4.0 17.67 9.0 18.67 14.0 Z" fill="url(#brandGrad)" opacity=".84"/>
       </svg>
       <div class="brand-text">
-        <div class="brand-cn">始信音乐</div>
-        <div class="brand-en">SHIXIN MUSIC</div>
+        <div class="brand-cn">调音·节拍</div>
+        <div class="brand-en">TUNER · METRONOME</div>
       </div>
     </div>
 <!-- METRO-BLOCK:HEADER -->

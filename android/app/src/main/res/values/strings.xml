@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">始信音乐</string>
+    <string name="app_name">调音·节拍</string>
     <string name="mic_denied">需要麦克风权限才能调音，请在系统设置中开启</string>
     <string name="offline_toast">当前无法联网，已切换到内置版本</string>
     <string name="no_link_handler">没有可以打开该链接的应用</string>

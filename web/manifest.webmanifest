@@ -1,7 +1,7 @@
 {
-  "name": "始信音乐 · 调音器",
-  "short_name": "始信音乐",
-  "description": "吉他与尤克里里调音器，精准、快速，可离线使用。",
+  "name": "调音·节拍",
+  "short_name": "调音·节拍",
+  "description": "吉他与尤克里里调音器，还能打拍子。精准、快速，可离线使用。",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "/",
@@ -10,7 +10,10 @@
   "orientation": "portrait",
   "background_color": "#0e0c0a",
   "theme_color": "#0e0c0a",
-  "categories": ["music", "utilities"],
+  "categories": [
+    "music",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",

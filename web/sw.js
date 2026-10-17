@@ -10,7 +10,7 @@
  * 文件一变 URL 就变，缓存自然失效。
  */
 
-const CACHE = 'shixin-tuner-v2';
+const CACHE = 'shixin-tuner-v3';
 
 const PRECACHE = [
   '/',

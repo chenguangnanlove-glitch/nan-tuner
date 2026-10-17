@@ -1,6 +1,6 @@
 {
-  "versionCode": 1,
-  "versionName": "1.0.0",
-  "notes": "首个版本：吉他 / 尤克里里 / 钢琴调音，指针与频闪两种视图，支持自定义标准音高。",
+  "versionCode": 2,
+  "versionName": "1.1.0",
+  "notes": "新增：节拍器。界面适配从小屏到平板的各种尺寸，图标焕新。",
   "apk": "/download/shixin-tuner.apk"
 }

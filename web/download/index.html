@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0e0c0a">
-<title>下载 App · 始信音乐调音器</title>
+<title>下载 App · 调音·节拍</title>
 <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon.png">
 <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
 <style>
@@ -126,8 +126,8 @@
 <div class="wrap">
 
   <div class="head">
-    <img class="app-icon" src="/icons/icon-192.png" alt="始信音乐" width="104" height="104">
-    <h1>始信音乐 · 调音器</h1>
+    <img class="app-icon" src="/icons/icon-192.png" alt="调音·节拍" width="104" height="104">
+    <h1>调音·节拍</h1>
     <p class="sub">吉他 · 尤克里里 · 钢琴</p>
     <div class="badge"><span class="dot"></span><span id="verBadge">正在获取版本…</span></div>
   </div>
@@ -156,7 +156,7 @@
       <li>点上面的按钮下载安装包（约 <span id="apkSize">几 MB</span>）。</li>
       <li>下载完成后，点通知栏或文件管理器里的这个文件。</li>
       <li>系统会提示 <b>「未知来源」</b>，点「设置」→ 允许本次安装。</li>
-      <li>安装完成，桌面出现「始信音乐」图标，点开即用。</li>
+      <li>安装完成，桌面出现「调音·节拍」图标，点开即用。</li>
     </ol>
   </div>
 
@@ -171,7 +171,7 @@
   </div>
 
   <footer>
-    始信音乐 SHIXIN MUSIC · <a href="/">返回调音器</a>
+    调音·节拍 · <a href="/">返回调音器</a>
   </footer>
 
 </div>
@@ -207,7 +207,7 @@
         '版本 ' + name + (code !== '' ? '（' + code + '）' : '') + ' · 安卓 7.0 及以上';
     })
     .catch(function () {
-      document.getElementById('verBadge').textContent = '始信音乐 · 调音器';
+      document.getElementById('verBadge').textContent = '调音·节拍';
       document.getElementById('notes').textContent = '版本信息暂时不可用，不影响下载安装。';
       document.getElementById('metaLine').textContent = '安卓 7.0 及以上';
     });

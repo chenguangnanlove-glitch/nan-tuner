@@ -57,12 +57,12 @@ HEAD_EXTRA = """<!-- ===== PWA / 手机 App（由 tools/build_web.py 自动插�
 <link rel="icon" type="image/png" sizes="64x64" href="/icons/favicon.png">
 <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="始信音乐">
+<meta name="apple-mobile-web-app-title" content="调音·节拍">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="description" content="始信音乐 · 手机调音器：吉他、尤克里里、钢琴调音，精准快速，支持离线使用。">
+<meta name="description" content="调音器 + 节拍器：吉他、尤克里里、钢琴调音，精准快速，可离线使用。">
 <meta property="og:type" content="website">
-<meta property="og:title" content="始信音乐 · 调音器">
-<meta property="og:description" content="精准的手机调音器，支持吉他与尤克里里。">
+<meta property="og:title" content="调音·节拍">
+<meta property="og:description" content="调音 + 打拍子，一个 App 够用。">
 <meta property="og:image" content="/icons/icon-512.png">
 """
 
