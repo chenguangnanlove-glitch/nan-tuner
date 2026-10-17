@@ -1119,15 +1119,15 @@
       <span class="app-tabs-thumb" id="tabThumb"></span>
       <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 8.5v7M12 5.5v13M18 9.5v5"/>
+          <path d="M8 3.5v6.2a4 4 0 0 0 8 0V3.5"/>
+          <path d="M12 13.7v6.8"/>
         </svg>
         <span>调音</span>
       </button>
       <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 19.5v-12l10 1.6v10.4"/>
-          <path d="M6.2 4.6h11.6"/>
-          <path d="M15.4 12.2l3.2 3.4"/>
+          <path d="M9 3.5h6l3.2 17H5.8z"/>
+          <path d="M12 18.2 15.3 6.8"/>
         </svg>
         <span>节拍</span>
       </button>
@@ -1393,14 +1393,31 @@
 
   const IN_TUNE        = 3;
   const RMS_MIN        = 0.004;
-  const WINDOW_SIZE    = 2048;
+  /* 分析窗口：自适应。低音弦需要更长的窗口才能数够周期 ——
+     E2 只有 82.4Hz，2048 样本（46ms）里才 3.8 个周期，
+     自相关法至少要 5 个才稳。窗口由 minFreq 算出来，见 pitchWindow()。
+
+     实测（tools/test_pitch_window.py，模拟非谐性+拍频+衰减）：
+       弦已衰减、噪声占比高时，E2 的检测准确率
+         2048 → 17% 落在 ±5 音分内
+         4096 → 67%
+     D3 在弱信号下 17% → 50%。高音弦两者相当，不受影响。
+
+     另注：仿真里所有结果都偏高约 4-5 音分，来源是琴弦的非谐性
+     （f_n = n·f0·√(1+B·n²)，高次谐波被拉高，平均周期偏短）。
+     真实吉他的 B 通常小于仿真用的 4e-4，实际偏差会小一些。
+     没有做补偿 —— 补偿量取决于弦的刚度和张力，逐琴不同，
+     写死一个系数反而会引入系统性误差。 */
+  const WINDOW_MIN     = 2048;
+  const WINDOW_MAX     = 4096;
+  const MIN_CYCLES     = 5;
   const ANALYSIS_MS    = 65;
-  const HISTORY_SIZE   = 3;
+  const HISTORY_SIZE   = 5;     /* 中位数取样多两帧，拨弦起音时更稳 */
   const SWITCH_NEED    = 3;
   const EMA_SLOW       = 0.12;
   const EMA_FAST       = 0.32;
   const EMA_FAST_GAP   = 28;
-  const NC_MIN         = 0.45;
+  const NC_MIN         = 0.55;  /* 自相关峰值阈值。0.45 太松，噪声也能过 */
   /* ── 指针物理 ──
      真实动圈表头是一个弹簧 - 阻尼系统：会轻轻冲过头，再回稳。
      NEEDLE_HZ   摆动快慢。3.8Hz ≈ 一个半来回 / 0.3 秒，跟真表头同量级。
@@ -1889,14 +1906,26 @@
     setTimeout(() => { playingRef = false; }, (duration + 0.15) * 1000);
   }
 
+  /* 分析窗口长度：按最低频率算出需要多少个样本才是 2 的幂。
+     吉他 70Hz → 5×44100/70 = 3150 → 4096
+     尤克 200Hz → 1103 → 2048
+     钢琴 65Hz → 3392 → 4096 */
+  function pitchWindow(minFreq, sampleRate, avail){
+    const need = Math.ceil(MIN_CYCLES * sampleRate / minFreq);
+    let size = WINDOW_MIN;
+    while (size < need && size < WINDOW_MAX) size *= 2;
+    return Math.min(size, avail);
+  }
+
   function detectPitch(buf, sampleRate, minFreq, maxFreq){
-    const SIZE = WINDOW_SIZE;
+    const SIZE = pitchWindow(minFreq, sampleRate, buf.length);
     const offset = buf.length - SIZE;
     let mean = 0;
     for (let i = 0; i < SIZE; i++) mean += buf[offset + i];
     mean /= SIZE;
     const minLag = Math.max(2, Math.floor(sampleRate / maxFreq));
-    const maxLag = Math.min(SIZE - 2, Math.floor(sampleRate / minFreq));
+    /* 每个 lag 至少留 SIZE/3 个样本参与相关，否则统计量太少，峰值虚高 */
+    const maxLag = Math.min(Math.floor(SIZE * 2 / 3), Math.floor(sampleRate / minFreq));
     const c = corrBuf;
     let maxVal = -1, maxPos = -1;
     for (let lag = minLag; lag <= maxLag; lag++){
@@ -1936,7 +1965,21 @@
     freqHistory.push(freqRaw);
     if (freqHistory.length > HISTORY_SIZE) freqHistory.shift();
     const sorted = freqHistory.slice().sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)];
+    let median = sorted[Math.floor(sorted.length / 2)];
+
+    /* 八度折叠
+       吉他低音弦的基频很弱、谐波很强，自相关容易锁到二次谐波（高八度）。
+       锁定某根弦时我们知道该是多少，把偏离超过一个八度的折回来。 */
+    if (lockedKey !== null){
+      const tf = (mode === 'piano')
+        ? getFreq(lockedKey)
+        : getFreq(INSTRUMENTS[mode].strings[lockedKey].midi);
+      let guard = 0;
+      while (median > tf * 1.6 && guard++ < 4) median /= 2;
+      guard = 0;
+      while (median < tf / 1.6 && guard++ < 4) median *= 2;
+    }
+
     let candId;
     if (mode === 'piano'){
       candId = Math.round(freqToMidi(median));
@@ -2389,7 +2432,9 @@ const DRAG_BPM_PER_TURN = 90;
    ══════════════════════════════════════════════════════════════ */
 
 const LOOKAHEAD_MS = 25;      // 多久检查一次
-const SCHEDULE_AHEAD = 0.1;   // 提前多少秒预排（秒）
+const SCHEDULE_AHEAD = 0.2;   // 提前多少秒预排（2026-10 从 0.1 提到 0.2：
+                              // 后台节流时 setInterval 可能被压到 250ms 一次，
+                              // 0.1 的窗口不够用，会断拍）
 
 function Metronome() {
   this.ctx = null;
@@ -2518,6 +2563,19 @@ Metronome.prototype.scheduler = function () {
   const ctx = this.ctx;
   if (!ctx || !this.playing) return;
 
+  /* 追上进度
+     页面卡顿、切后台回来时，nextNoteTime 可能已经落在过去。
+     原来的 while 会把这些「已经错过」的拍子全部补发一遍 ——
+     Web Audio 对过去的时间戳会立即发声，听起来就是一连串「咯咯咯咯」连击。
+     正确做法：直接跳过它们，把节拍相位对齐到「现在」。 */
+  const beatDur = this.beatDuration();
+  if (this.nextNoteTime < ctx.currentTime - 0.02) {
+    const missed = Math.ceil((ctx.currentTime - this.nextNoteTime) / beatDur);
+    this.nextNoteTime += missed * beatDur;
+    this.beatIndex = (this.beatIndex + missed) % this.num;
+    this.skippedBeats = (this.skippedBeats || 0) + missed;
+  }
+
   while (this.nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD) {
     const kind = this.pattern[this.beatIndex] !== undefined
       ? this.pattern[this.beatIndex]
@@ -2535,7 +2593,7 @@ Metronome.prototype.scheduler = function () {
     }
 
     // 推进到下一拍
-    this.nextNoteTime += this.beatDuration();
+    this.nextNoteTime += beatDur;
     this.beatIndex = (this.beatIndex + 1) % this.num;
   }
 };
@@ -2547,6 +2605,7 @@ Metronome.prototype.start = function () {
 
   this.playing = true;
   this.beatIndex = 0;
+  this.skippedBeats = 0;
   // 稍微延后一点起拍，避免第一声被切掉
   this.nextNoteTime = this.ctx.currentTime + 0.06;
 
