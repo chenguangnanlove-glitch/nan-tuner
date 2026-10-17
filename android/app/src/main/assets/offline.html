@@ -262,20 +262,21 @@
     width:100%;max-width:310px;height:auto;
     margin:0 auto;overflow:visible;
   }
-  #needleDot{
-    transition:cx .08s linear, cy .08s linear, fill .25s, r .25s;
+  /* 指针：从圆心指向刻度 */
+  #needleLine, #needleTip{
+    transition:stroke .25s, fill .25s;
   }
-  .app.tuning-ok #needleDot{ fill:var(--success); }
+  .app.tuning-ok #needleLine{ stroke:var(--success); }
+  .app.tuning-ok #needleTip{ fill:var(--success); }
   .app.tuning-ok .gauge-arc{ stroke:rgba(var(--success-rgb),.38); }
 
-  /* 音名叠层 */
+  /* 音名叠层：让音名的中心与圆环圆心（指针轴心）重合 */
   .gauge-overlay{
     position:absolute;
     left:0;right:0;
     top:50%;
-    transform:translateY(-50%);
-    display:flex;flex-direction:column;
-    align-items:center;justify-content:center;
+    height:84px;margin-top:-42px;
+    display:flex;align-items:center;justify-content:center;
     pointer-events:none;
     text-align:center;
   }
@@ -286,11 +287,15 @@
     transition:color .3s;
     font-variant-numeric:tabular-nums;
     display:flex;align-items:baseline;justify-content:center;
-    min-height:72px;   /* 待机时没有音名，也占住高度不跳 */
+    /* 背景色光晕：指针从字后面穿过时，在笔画周围被柔化，
+       像表盘上印的字盖住了指针 —— 比硬遮罩自然 */
+    text-shadow:
+      0 0 7px var(--surface), 0 0 7px var(--surface),
+      0 0 3px var(--surface), 0 0 3px var(--surface);
   }
-  .note .letter{font-size:72px;letter-spacing:-.04em}
+  .note .letter{font-size:84px;letter-spacing:-.04em}
   .note .oct{
-    font-size:24px;font-weight:400;
+    font-size:27px;font-weight:400;
     color:var(--text-2);
     margin-left:6px;
     letter-spacing:0;
@@ -298,14 +303,20 @@
   .app.tuning-ok .note{color:var(--success)}
   .app.tuning-ok .note .oct{color:var(--success);opacity:.7}
 
+  /* 音分文字：紧贴音名下方，不参与居中 —— 否则会把音名推偏 */
   .cents{
-    margin-top:12px;
+    position:absolute;
+    left:0;right:0;
+    top:100%;
+    margin-top:10px;
     font-size:15px;font-weight:500;
     letter-spacing:.04em;
     color:var(--text-3);
     transition:color .3s;
-    min-height:20px;
     font-variant-numeric:tabular-nums;
+    text-shadow:
+      0 0 9px var(--surface), 0 0 9px var(--surface),
+      0 0 4px var(--surface);
   }
   .cents.high{color:var(--warn)}
   .cents.low{color:var(--warn)}
@@ -566,8 +577,9 @@
      弦按钮的 padding 不要在矮屏改动 —— 顶部那条弦会贴边。 */
   @media (max-height:780px){
     .gauge-svg{ max-width:265px }
-    .note .letter{font-size:64px}
-    .note .oct{font-size:21px}
+    .gauge-overlay{ height:75px;margin-top:-37.5px }
+    .note .letter{font-size:75px}
+    .note .oct{font-size:24px}
     .center{margin-top:61px}
     .target-area{margin-top:0}
     .strings{margin-top:26px}
@@ -576,8 +588,9 @@
   }
   @media (max-height:660px){
     .gauge-svg{ max-width:210px }
-    .note .letter{font-size:56px}
-    .note .oct{font-size:18px}
+    .gauge-overlay{ height:60px;margin-top:-30px }
+    .note .letter{font-size:60px}
+    .note .oct{font-size:19px}
     .center{margin-top:40px}
     .target-area{margin-top:0}
     .strings{margin-top:16px}
@@ -587,12 +600,16 @@
   }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
-    .note .letter{font-size:46px}
+    .gauge-overlay{ height:48px;margin-top:-24px }
+    .note .letter{font-size:48px}
+    .note .oct{font-size:16px}
     .center{margin-top:26px}
   }
   @media (max-height:430px){
     .gauge-svg{ max-width:132px }
+    .gauge-overlay{ height:38px;margin-top:-19px }
     .note .letter{font-size:38px}
+    .note .oct{font-size:13px}
     .center{margin-top:18px}
   }
 
@@ -1151,9 +1168,18 @@
               stroke-width="3" stroke-linecap="round"/>
         <!-- 刻度 -->
         <g id="ticks"></g>
-        <!-- 滑动圆点 -->
-        <circle id="needleDot" cx="150" cy="19" r="6"
-                style="fill:var(--accent)" stroke="none"/>
+        <!-- 指针：从圆心指向刻度 -->
+        <g id="needle">
+          <line id="needleLine" x1="150" y1="150" x2="150" y2="19"
+                stroke="var(--accent)" stroke-width="2.4"
+                stroke-linecap="round"/>
+          <circle id="needleTip" cx="150" cy="19" r="2.6"
+                  fill="var(--accent)" stroke="none"/>
+          <!-- 轴心：真表头中心的转轴 -->
+          <circle cx="150" cy="150" r="4.5"
+                  fill="var(--surface-2)"
+                  stroke="rgba(var(--accent-rgb),.42)" stroke-width="1.2"/>
+        </g>
       </svg>
 
       <!-- 音名叠层 -->
@@ -1353,9 +1379,17 @@
   const EMA_FAST       = 0.32;
   const EMA_FAST_GAP   = 28;
   const NC_MIN         = 0.45;
-  const NEEDLE_STIFF   = 0.10;
-  const NEEDLE_DAMP    = 0.82;
-  const NEEDLE_DEADZONE= 0.12;
+  /* ── 指针物理 ──
+     真实动圈表头是一个弹簧 - 阻尼系统：会轻轻冲过头，再回稳。
+     NEEDLE_HZ   摆动快慢。3.8Hz ≈ 一个半来回 / 0.3 秒，跟真表头同量级。
+     NEEDLE_ZETA 阻尼比。0.52 → 过冲 10.6%，峰值 100ms、稳定 400ms。
+                 低于 0.4 会摆个不停，高于 0.7 就死板了。
+     两个参数都是物理量，与刷新率无关 ——
+     60/120Hz 屏上的手感一致（旧写法是逐帧系数，120Hz 下会快一倍）。 */
+  const NEEDLE_HZ       = 3.8;
+  const NEEDLE_ZETA     = 0.52;
+  const NEEDLE_DEADZONE = 0.10;   /* 度 */
+  const NEEDLE_STOP_VEL = 1.5;    /* 度/秒 */
   const STROBE_SPEED   = 1.0;
   const STROBE_PERIOD  = 28;
   const STROBE_STRIPE  = 12;
@@ -1365,7 +1399,8 @@
   const G_DEG_PER_CENT = 1.8;   /* 1 音分 = 1.8°（满量程 ±50 音分 = ±90°） */
 
   const appEl       = document.getElementById('app');
-  const needleDot   = document.getElementById('needleDot');
+  const needleLine = document.getElementById('needleLine');
+  const needleTip  = document.getElementById('needleTip');
   const ticksEl     = document.getElementById('ticks');
   const noteEl      = document.getElementById('noteName');
   const centsEl     = document.getElementById('centsText');
@@ -1414,6 +1449,7 @@
   let needleAngle = 0;
   let needleVel   = 0;
   let needleTarget= 0;
+  let lastNeedleTs= 0;
   let strobePhase = 0;
   let smoothLevel = 0;
   let lastGoodTs  = 0;
@@ -1943,7 +1979,9 @@
   }
 
   function clearDisplay(){
-    noteEl.innerHTML = running ? '<span class="letter">–</span>' : '';
+    /* 不再画破折号占位 —— 84px 的横杠很抢眼。
+       没有音名时就让指针完整地露出来，提示交给下方那行字。 */
+    noteEl.innerHTML = '';
     centsEl.textContent = running ? '拨响一个音…' : '轻触开始';
     centsEl.className = 'cents';
     freqEl.textContent = '';
@@ -1960,19 +1998,32 @@
     smoothCents = 0; needleVel = 0; needleTarget = 0;
   }
 
-  function updateNeedle(){
-    const diff = needleTarget - needleAngle;
-    needleVel += diff * NEEDLE_STIFF;
-    needleVel *= NEEDLE_DAMP;
-    needleAngle += needleVel;
-    if (Math.abs(diff) < NEEDLE_DEADZONE && Math.abs(needleVel) < 0.05){
+  function updateNeedle(ts){
+    /* 用真实时间步长，60Hz / 120Hz 屏手感一致。
+       切后台回来时 ts 会跳很大，限幅到 50ms，避免指针瞬移。 */
+    let dt = lastNeedleTs ? (ts - lastNeedleTs) / 1000 : (1 / 60);
+    lastNeedleTs = ts;
+    if (!(dt > 0) || dt > 0.05) dt = 1 / 60;
+
+    const w = 2 * Math.PI * NEEDLE_HZ;
+    const accel = w * w * (needleTarget - needleAngle)
+                - 2 * NEEDLE_ZETA * w * needleVel;
+    needleVel   += accel * dt;
+    needleAngle += needleVel * dt;
+
+    if (Math.abs(needleTarget - needleAngle) < NEEDLE_DEADZONE &&
+        Math.abs(needleVel) < NEEDLE_STOP_VEL){
       needleAngle = needleTarget; needleVel = 0;
     }
+
     const rad = needleAngle * Math.PI / 180;
-    const x = G_CX + G_R * Math.sin(rad);
-    const y = G_CY - G_R * Math.cos(rad);
-    needleDot.setAttribute('cx', x.toFixed(2));
-    needleDot.setAttribute('cy', y.toFixed(2));
+    const rTip = G_R - 5;
+    const x = G_CX + rTip * Math.sin(rad);
+    const y = G_CY - rTip * Math.cos(rad);
+    needleLine.setAttribute('x2', x.toFixed(2));
+    needleLine.setAttribute('y2', y.toFixed(2));
+    needleTip.setAttribute('cx', x.toFixed(2));
+    needleTip.setAttribute('cy', y.toFixed(2));
   }
 
   function drawStrobe(){
@@ -2023,7 +2074,7 @@
         }
       }
     }
-    updateNeedle();
+    updateNeedle(ts);
     if (Math.abs(smoothCents) >= 0.4){
       strobePhase += smoothCents * STROBE_SPEED;
       if (strobePhase > 1e6)  strobePhase -= 1e6;
