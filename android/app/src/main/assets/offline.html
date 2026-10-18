@@ -245,9 +245,12 @@
     display:flex;flex-direction:column;
     min-height:0;
     /* 校准：整圆环直径 310px，与节拍器同尺寸。
-       390x844 实测：圆心 395、弦按钮 624、音量 695、提示 738，
-       与节拍页逐轴重合。 */
-    margin:80px 0 0;
+       注意这里是「固定 margin」，而节拍页圆环是 flex 居中动态算的 ——
+       顶部字号一变（logo 30→38、品牌字 9→11），两边就会漂。
+       缩放顶部之后实测差 3px：
+         390×844 调音圆心 432 / 节拍 435；音量条 732 / 735。
+       补 3px 让两页逐轴重合。再改顶部尺寸要回来复测这一处。 */
+    margin:83px 0 0;
   }
 
   /* ============ 表盘区（含音名） ============ */
@@ -680,7 +683,8 @@
     /* 顶部 50px 的固定下边距在各断点里必须一起收，
        否则矮屏上「50 + 80」这 130px 的死间距会把提示语顶出屏幕。 */
     .header{margin-bottom:36px}
-    .center{margin-top:55px}
+    /* 与节拍页对齐（375×667 实测）：圆环曾低 6px、弦按钮低 17px */
+    .center{margin-top:49px}
     .target-area{margin-top:0}
     .strings{margin-top:26px}
     .level-row{margin-top:16px}
@@ -691,7 +695,7 @@
     .note .letter{font-size:60px}
     .note .oct{font-size:19px}
     .header{margin-bottom:28px}
-    .center{margin-top:34px}
+    .center{margin-top:28px}
     .target-area{margin-top:0}
     .strings{margin-top:16px}
     .level-row{margin-top:12px}
@@ -702,7 +706,12 @@
      高度只剩 568，130px 死间距必须砍到 44 才不会顶出提示语。 */
   @media (max-height:600px){
     .header{margin-bottom:20px}
-    .center{margin-top:24px}
+    /* 320×568 实测圆环比节拍页高 30px，下移补齐。
+       这一档空间最紧，靠下面 .strings/.level-row/.hint 的小间距兜住不溢出。 */
+    .center{margin-top:54px}
+    .strings{margin-top:6px}
+    .level-row{margin-top:6px}
+    .hint{margin-top:4px}
   }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
@@ -1325,7 +1334,7 @@
 
   <div class="header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="调音·节拍">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
         <defs>
           <linearGradient id="brandGrad" x1="4.7" y1="4" x2="27.3" y2="28" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#f6dfb6"/>
@@ -1343,7 +1352,7 @@
         <path d="M 18.67 14.0 C 23.0 14.0 27.0 10.33 27.33 4.0 C 21.67 4.0 17.67 9.0 18.67 14.0 Z" fill="url(#brandGrad)" opacity=".84"/>
       </svg>
       <div class="brand-text">
-        <div class="brand-cn">调音·节拍</div>
+        <div class="brand-cn">始信音乐</div>
         <div class="brand-en">TUNER · METRONOME</div>
       </div>
     </div>
@@ -2136,18 +2145,51 @@
 
   /* 演奏一个标准音。
      sample = { key, rate } 时优先用真实录音。 */
-  async function playReference(freq, duration, sample){
-    duration = duration || 1.4;
-    const ctx = await ensureAudio();
+  /* ── 点击发声：零延迟优先 ──
+     原来的写法是 async + 一上来就 await ensureAudio()，
+     采样没缓存时还要再 await loadSample() 走一次网络请求 ——
+     第一次点某个音要等几百毫秒才出声，点快了还容易漏。
 
-    if (sample && sample.key){
-      if (fireSample(sample.key, sample.rate, duration)) return;
-      /* 还没缓存：先加载，好了再补放一次 */
-      const buf = await loadSample(sample.key);
-      if (buf && fireSample(sample.key, sample.rate, duration)) return;
-      /* 采样不可用 → 落到下面的合成音 */
+     现在按「能立刻出声就先出声」排序：
+       ① 采样已在内存 → 同步启动，0 等待
+       ② 采样没就绪   → 立刻用合成音顶上（同时后台补载，下次就快了）
+       ③ 上下文被挂起 → 立即触发 resume，恢复后接着播
+     函数仍返回 Promise，调用处的 await 照旧可用。 */
+  function playReference(freq, duration, sample){
+    duration = duration || 1.4;
+
+    /* ① 已缓存的真实录音：同步播放，不等任何东西 */
+    if (sample && sample.key && fireSample(sample.key, sample.rate, duration)) {
+      return Promise.resolve();
     }
 
+    /* ② 后台补载，供下一次点击使用（不阻塞本次发声） */
+    if (sample && sample.key && !sampleBufs[sample.key]) loadSample(sample.key);
+
+    /* ③ 合成音立刻顶上 */
+    const ctx = ensureAudioSync();
+    if (ctx && ctx.state === 'running') {
+      playSynth(ctx, freq, duration);
+      return Promise.resolve();
+    }
+    /* 上下文还没 running（首次交互前被浏览器挂起）：
+       先同步尝试恢复，恢复后马上补播，通常只有几十毫秒 */
+    return ensureAudio().then(c => playSynth(c, freq, duration)).catch(() => {});
+  }
+
+  /* 同步取出 AudioContext（首次调用时创建）。
+     decodeAudioData 在 suspended 状态下也能用，所以预加载不必等交互。 */
+  function ensureAudioSync(){
+    if (!audioCtx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { audioCtx = new AC(); } catch (e) { return null; }
+    }
+    return audioCtx;
+  }
+
+  /* 合成音：短促的三角波 + 八度泛音，用作采样未就绪时的即时兜底 */
+  function playSynth(ctx, freq, duration){
     const now = ctx.currentTime;
     const osc1 = ctx.createOscillator();
     osc1.type = 'triangle';
@@ -2170,6 +2212,48 @@
     playingRef = true;
     setTimeout(() => { playingRef = false; }, (duration + 0.15) * 1000);
   }
+
+  /* ── 采样预加载 ──
+     25 个文件共 391KB，全部解码进内存约 2MB，代价可接受。
+     页面空闲时串行拉取（串行是为了不和首屏抢带宽），
+     这样第一次点音符听到的就是真实录音，而不是合成音。
+     预加载失败也不影响功能 —— playReference 会退到合成音。 */
+  function preloadSamples(){
+    const keys = [];
+    for (const k in INSTRUMENTS){
+      const inst = INSTRUMENTS[k];
+      if (inst.type === 'strings' && inst.prefix){
+        inst.strings.forEach(st => {
+          keys.push(inst.prefix + st.name.replace('#', 's') + st.oct);
+        });
+      }
+    }
+    PIANO_POINTS.forEach(m => keys.push('piano_' + midiToSampleName(m)));
+    const uniq = Array.from(new Set(keys));
+
+    let i = 0;
+    function next(){
+      if (i >= uniq.length) return;
+      loadSample(uniq[i++]).then(next, next);
+    }
+    next();
+  }
+
+  /* 页面一空闲就开始预加载 */
+  if (window.requestIdleCallback){
+    requestIdleCallback(preloadSamples, { timeout: 2500 });
+  } else {
+    setTimeout(preloadSamples, 1200);
+  }
+
+  /* 首次任意触摸就把 AudioContext 唤醒 —— 别等到点音符那一刻。
+     用捕获阶段 + once，保证先于业务逻辑执行。 */
+  ['pointerdown', 'touchstart', 'mousedown'].forEach(ev => {
+    document.addEventListener(ev, () => {
+      const c = ensureAudioSync();
+      if (c && c.state === 'suspended') c.resume().catch(() => {});
+    }, { capture: true, passive: true, once: true });
+  });
 
   /* 分析窗口长度：按最低频率算出需要多少个样本才是 2 的幂。
      吉他 70Hz → 5×44100/70 = 3150 → 4096

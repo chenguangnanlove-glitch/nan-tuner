@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
-  "notes": "新增：节拍器。界面适配从小屏到平板的各种尺寸，图标焕新。",
+  "versionCode": 3,
+  "versionName": "1.1.1",
+  "notes": "修复：调音页与节拍页的圆环错位（小屏差 30px）；点音符的延迟，采样改为预加载。",
   "apk": "/download/shixin-tuner.apk"
 }
