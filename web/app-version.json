@@ -1,6 +1,6 @@
 {
-  "versionCode": 3,
-  "versionName": "1.1.1",
-  "notes": "修复：调音页与节拍页的圆环错位（小屏差 30px）；点音符的延迟，采样改为预加载。",
+  "versionCode": 4,
+  "versionName": "1.1.2",
+  "notes": "修复：节拍页在 App 内点设置只剩一条空线；节拍器音量偏小；吉他低音弦在手机外放听不见（谐波补偿）。",
   "apk": "/download/shixin-tuner.apk"
 }

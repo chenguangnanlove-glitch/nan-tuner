@@ -55,6 +55,14 @@
   }
 
   .app{
+    /* 两页共用的垂直节奏。
+       以前调音页用固定 margin、节拍页用 flex 剩余空间居中，
+       屏幕高度一变两边就各走各的（360×640 实测圆心差 58px）。
+       现在两页的第一行等高，圆环顶都从「第一行底 + --ring-gap」开始，
+       位置由同一个变量决定，不再依赖屏幕剩余多少空间。 */
+    --row-h:46px;          /* 调音页模式标签 / 节拍页拍号按钮，同一行高 */
+    --ring-gap:81px;       /* 第一行底 → 圆环顶 */
+    --hint-gap:14px;       /* 音量条 → 提示行，两页共用 */
     width:100%;
     max-width:100%;
     min-height:100dvh;
@@ -224,6 +232,8 @@
     display:flex;background:var(--surface-2);
     border:1px solid var(--border);
     border-radius:12px;padding:3px;gap:2px;
+    /* 与节拍页的 .metro-top 同高，两页圆环才从同一条基线往下排 */
+    min-height:var(--row-h);
     margin-bottom:0;flex:none;
   }
   .mode-tab{
@@ -244,13 +254,10 @@
     flex:none;
     display:flex;flex-direction:column;
     min-height:0;
-    /* 校准：整圆环直径 310px，与节拍器同尺寸。
-       注意这里是「固定 margin」，而节拍页圆环是 flex 居中动态算的 ——
-       顶部字号一变（logo 30→38、品牌字 9→11），两边就会漂。
-       缩放顶部之后实测差 3px：
-         390×844 调音圆心 432 / 节拍 435；音量条 732 / 735。
-       补 3px 让两页逐轴重合。再改顶部尺寸要回来复测这一处。 */
-    margin:83px 0 0;
+    /* 圆环顶 = 第一行底 + --ring-gap，与节拍页共用同一个值。
+       别再在这里写死像素：两页一起改才算对齐，
+       各断点只改 .app 上的 --ring-gap 一个数。 */
+    margin:var(--ring-gap) 0 0;
   }
 
   /* ============ 表盘区（含音名） ============ */
@@ -438,7 +445,7 @@
   .level-row{
     display:flex;flex-direction:column;align-items:stretch;gap:6px;
     width:min(84%, 312px);
-    margin:19px auto 0;flex:none;
+    margin:13px auto 0;flex:none;
   }
   .level-label{
     font-size:10px;font-weight:500;color:var(--text-3);
@@ -446,7 +453,9 @@
   }
   .level-seg{
     display:flex;align-items:center;gap:8px;
-    width:100%;height:20px;
+    /* 与节拍页 .vol-seg 同高：格子仍是 20px，多的 6px 是留给
+       两页音量条中心对齐的余量，视觉上看不出差别。 */
+    width:100%;height:26px;
     -webkit-tap-highlight-color:transparent;
   }
   .level-seg i{
@@ -664,7 +673,7 @@
     text-align:center;
     font-size:11px;font-weight:400;
     color:var(--text-3);
-    margin-top:14px;
+    margin-top:var(--hint-gap);
     letter-spacing:.04em;
     line-height:1.6;
     flex:none;
@@ -683,52 +692,49 @@
     /* 顶部 50px 的固定下边距在各断点里必须一起收，
        否则矮屏上「50 + 80」这 130px 的死间距会把提示语顶出屏幕。 */
     .header{margin-bottom:36px}
-    /* 与节拍页对齐（375×667 实测）：圆环曾低 6px、弦按钮低 17px */
-    .center{margin-top:49px}
-    .target-area{margin-top:0}
-    .strings{margin-top:26px}
-    .level-row{margin-top:16px}
-    .hint{margin-top:12px}
+    /* 这一档的圆环顶比节拍页低多少，只调这一个数即可（圆心随之移动） */
+    .app{--ring-gap:47px}
+    .strings{margin-top:22px}
+    .level-row{margin-top:8px}
+    .app{--hint-gap:12px}
   }
   @media (max-height:660px){
     .gauge-svg{ max-width:210px }
     .note .letter{font-size:60px}
     .note .oct{font-size:19px}
     .header{margin-bottom:28px}
-    .center{margin-top:28px}
-    .target-area{margin-top:0}
-    .strings{margin-top:16px}
-    .level-row{margin-top:12px}
-    .hint{margin-top:10px}
+    .app{--ring-gap:24px}
+    .strings{margin-top:14px}
+    .level-row{margin-top:4px}
+    .app{--hint-gap:10px}
     .sbtn .nm{font-size:17px}
   }
   /* 320x568（iPhone SE1）专用：320 宽已经吃满 210 的圆环，
-     高度只剩 568，130px 死间距必须砍到 44 才不会顶出提示语。 */
+     高度只剩 568，间距必须收紧才不会顶出提示语。 */
   @media (max-height:600px){
     .header{margin-bottom:20px}
-    /* 320×568 实测圆环比节拍页高 30px，下移补齐。
-       这一档空间最紧，靠下面 .strings/.level-row/.hint 的小间距兜住不溢出。 */
-    .center{margin-top:54px}
+    /* 这一档空间最紧：561-600 这段靠下面的小间距兜住，不会顶出提示语。 */
+    .app{--ring-gap:50px}
     .strings{margin-top:6px}
-    .level-row{margin-top:6px}
-    .hint{margin-top:4px}
+    .level-row{margin-top:2px}
+    .app{--hint-gap:4px}
   }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
     .note .letter{font-size:48px}
     .note .oct{font-size:16px}
     .header{margin-bottom:16px}
-    .center{margin-top:20px}
+    .app{--ring-gap:18px}
   }
   @media (max-height:430px){
     .gauge-svg{ max-width:132px }
     .note .letter{font-size:38px}
     .note .oct{font-size:13px}
     .header{margin-bottom:10px}
-    .center{margin-top:8px}
+    .app{--ring-gap:6px}
     .strings{margin-top:8px}
-    .level-row{margin-top:8px}
-    .hint{margin-top:6px}
+    .level-row{margin-top:2px}
+    .app{--hint-gap:6px}
   }
 
   /* ── 横屏专用 ──
@@ -784,6 +790,14 @@
        节拍页保持 132（不溢出，只是偏小），这是浏览器横屏的次要场景。 */
     #pageTuner .gauge-svg{ max-width:min(56vh, 250px); margin:0 auto }
     #pageTuner .header{ margin-bottom:8px }
+    /* 横屏节拍页仍是单栏：圆环回到区域中间，
+       与竖屏那套「顶部对齐」的规则分开（两页横屏本来就不是同一套排版）。
+       25px 是基线位置：竖屏改成 padding-top:var(--ring-gap) 后，
+       横屏得把数值写回来，否则圆环会比改动前多上移 25px。 */
+    #pageMetro .metro-ring-area{
+      align-items:center; padding-top:25px;
+      height:auto; flex:1 1 auto;
+    }
   }
 
   /* ===== 手机 App 下载入口（由 tools/build_web.py 自动插入） ===== */
@@ -853,7 +867,21 @@
 
   /* 切换页时的显示差异 */
   body[data-page="metro"] .mic{display:none}
+  /* 标准音高、视图都是调音页的设置，节拍页不显示；
+     节拍页只留「手机 App 下载安装」一项。 */
   body[data-page="metro"] .setting-row:not(#appRow){display:none}
+
+  /* 节拍页在 App 内没有任何可设置的项：
+     上面刚把标准音高/视图隐藏，而 App 内「下载安装」也被藏了
+     （离线版构建时更是整个 #appRow 节点都删了）。
+     于是点开小太阳只剩一条 10×256 的空条 —— 看着像根线，什么也点不到。
+     此时干脆不显示按钮。
+     用 visibility 而不是 display：保留 36px 占位，
+     header 是 space-between，按钮一旦脱流左右的胶囊就会移位。 */
+  body.in-app[data-page="metro"] .settings-btn{
+    visibility:hidden;
+    pointer-events:none;
+  }
 
   /* ══════════════════════════════════════════════════════
      节拍器
@@ -861,10 +889,9 @@
   .metro-wrap{
     display:flex;flex-direction:column;flex:1;
     min-height:0;
-    /* 底部留白：让拍点落在 624、音量条落在 696（与调音页对齐）。
-       末行提示占掉下方 37px，所以这里的 padding 相应减小 ——
-       两页的内容底部边界便落在同一位置，切换时不再跳动。 */
-    padding-bottom:12px;
+    /* 底部不再额外留白：提示行直接落在 app 的内容底部，
+       与调音页同一条基线（多出来的 12px 会让两页提示差一截）。 */
+    padding-bottom:0;
   }
 
   /* ── 音色抽屉 ──
@@ -951,6 +978,8 @@
   .metro-top{
     display:flex;justify-content:center;
     gap:8px;                   /* 音色按钮 + 拍号按钮 */
+    height:var(--row-h);       /* 与调音页的 .mode-tabs 同高 */
+    align-items:center;
     flex:none;margin-bottom:0;
   }
   .meter-btn{
@@ -984,15 +1013,19 @@
        否则圆环区会吸走全部剩余空间，把拍点/音量条/提示推到屏幕最底，
        而调音页的元素是堆在顶部的 —— 两页底部差几十像素，切页就会跳。
        463px 是设计基准屏（780）下这一区的自然高度；
-       446px 是校准后的值：使圆环圆心落在 390、拍点中心落在 624，
-       与调音页的弧圆心、音量条中心逐轴重合。 */
-    max-height:446px;
-    display:flex;align-items:center;justify-content:center;
+       446px 只是这块区域的高度上限：圆环靠 padding-top 顶对齐，
+       不再由这块区域「居中」决定 —— 圆心由 --ring-gap 统一算。 */
+    /* 高度由「圆环上限 + 间隙」定死：不再靠 flex:1 吸收剩余空间。
+       否则圆环尺寸（syncRingSize 量的是这块区域）和圆心都会随屏幕
+       高度浮动，节拍页也就永远对不上调音页。 */
+    flex:none;
+    height:calc(var(--ring-max) + var(--ring-gap));
+    display:flex;align-items:flex-start;justify-content:center;
     min-height:0;
     position:relative;
     overflow:hidden;
-    /* 让圆环圆心落在 390，与调音页的弧圆心对齐 */
-    padding-top:25px;
+    /* 顶部对齐 + 与调音页同一个间隙，圆心不再随剩余空间浮动 */
+    padding-top:var(--ring-gap);
   }
   /* 圆环尺寸由 JS（syncRingSize）按可用空间算出，写进 --ring-size。
      这里必须给「固定」的宽高 —— 不能让尺寸由内容撑开，
@@ -1159,7 +1192,10 @@
     display:flex;align-items:center;justify-content:center;
     flex:none;
     width:min(84%, 312px);
-    margin:43px auto 0;
+    /* 补足与调音页的结构差：调音页圆环下面是 106px 的弦按钮区，
+       节拍页只有 30px 的拍点。把这 76px（含间距）补在这里，
+       两页的音量条与提示行才落在同一条线上，切页不跳。 */
+    margin:105px auto 0;
     padding:0 2px;
   }
   .vol-seg{
@@ -1177,8 +1213,8 @@
   .vol-seg i.on{ background:var(--accent) }
   .vol-seg:focus-visible{ outline:2px solid var(--accent);outline-offset:4px }
 
-  /* 节拍的提示行：位置刻意对齐调音页那一行，切换时底部不跳 */
-  .metro-hint{ margin-top:21px }
+  /* 节拍的提示行：跟调音页同一个间距变量，切换时底部不跳 */
+  .metro-hint{ margin-top:var(--hint-gap) }
 
   /* ══════════════════════════════════════════════════════
      拍号选择面板（底部弹出）
@@ -1282,6 +1318,11 @@
   @media (max-height: 780px){
     .metro-ring-area{ --ring-max:265px }
     .ring-term{ font-size:12px;margin-top:6px }
+    /* 这里才是音量条的真正入口：本文件下方的默认 .vol-row
+       （105px）比调音页断点块里的同名规则出现得更晚，同样特异性下
+       会覆盖它。实测 360×720 / 360×780 / 375×667 需要 80px，
+       否则节拍页音量条与提示行整体低 25px。 */
+    .vol-row{ margin-top:80px }
     /* 拍号与拍点不再缩小：一旦这里变化，节拍页的内容总高就与调音页
        不再相等，底部会差出一截，切页时看得到跳。矮屏空间不足时
        由圆环区（flex:1）自动收缩，不影响这两处。 */
@@ -1290,13 +1331,20 @@
     .metro-ring-area{ --ring-max:210px }
     .ring-term{ font-size:11px;margin-top:4px;min-height:15px }
     .ring-center{ width:74% }
-    .vol-row{ margin-top:5px }
+    /* 矮屏上弦按钮区更矮，结构差跟着收窄（按实测逐档校准）
+       360×640 实测：56px 会让调音页音量条低 10px，66 才逐轴重合。 */
+    .vol-row{ margin-top:66px }
+  }
+  /* 320×568 实测这一档本来就重合：≤660 的 66px 是给 640 用的，
+     这里必须显式兜回 56，否则 568 会被带偏 10px。 */
+  @media (max-height: 600px){
+    .vol-row{ margin-top:56px }
   }
   @media (max-height: 560px){
     .metro-ring-area{ --ring-max:160px }
     .ring-term{ font-size:10px;margin-top:3px;min-height:13px }
     .ring-center{ width:72% }
-    .vol-row{ margin-top:4px }
+    .vol-row{ margin-top:56px }
   }
   /* 极矮屏（横屏、老设备）：一切从简 */
   @media (max-height: 430px){
@@ -1309,6 +1357,8 @@
     .beat-dots{ height:22px;gap:9px;margin-top:2px }
     .beat-dot{ width:10px;height:10px }
     .beat-dot.accent{ width:12px;height:12px }
+    /* 这一档实际命中的就是横屏（竖屏最低也有 480）：单栏布局，
+       不需要补竖屏那个弦按钮区的结构差，保持 3px。 */
     .vol-row{ margin-top:3px }
     .vol-icon{ width:15px;height:15px }
   }
@@ -1429,21 +1479,21 @@
     <div class="gauge-block" id="gaugeBlock">
       <svg class="gauge-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
         <!-- 整圆外壳：与节拍器的圆环同尺寸 -->
-        <circle class="gauge-arc" cx="150" cy="150" r="131"
+        <circle class="gauge-arc" cx="150" cy="150" r="135"
                 fill="none" stroke="rgba(240,235,227,.09)"
                 stroke-width="1.5"/>
         <!-- 准音区（±5 音分 = ±9°）-->
-        <path d="M 129.51 20.61 A 131 131 0 0 1 170.49 20.61"
+        <path d="M 128.88 16.66 A 135 135 0 0 1 171.12 16.66"
               fill="none" stroke="rgba(var(--success-rgb),.42)"
               stroke-width="3" stroke-linecap="round"/>
         <!-- 刻度 -->
         <g id="ticks"></g>
         <!-- 指针：从圆心指向刻度 -->
         <g id="needle">
-          <line id="needleLine" x1="150" y1="150" x2="150" y2="19"
+          <line id="needleLine" x1="150" y1="150" x2="150" y2="15"
                 stroke="var(--accent)" stroke-width="2.4"
                 stroke-linecap="round"/>
-          <circle id="needleTip" cx="150" cy="19" r="2.6"
+          <circle id="needleTip" cx="150" cy="15" r="2.6"
                   fill="var(--accent)" stroke="none"/>
           <!-- 轴心：真表头中心的转轴 -->
           <circle cx="150" cy="150" r="4.5"
@@ -1616,6 +1666,57 @@
     return __themeCache;
   }
 
+  /* ══════════════════════════════════════════════
+     音频共用的曲线工具
+     ══════════════════════════════════════════════
+     第一个 <script> 的采样播放和第三个 <script> 的节拍器都要用，
+     所以必须放在全局作用域 —— 藏在任一个 IIFE 里另一段就够不到。 */
+  /* tanh 驱动曲线：软饱和，奇数阶为主，听感偏“胆味”
+     不像硬削波那样产生大量刺耳高阶。 */
+  let driveCurveCache = null;
+  function driveCurve(k){
+    if (driveCurveCache && driveCurveCache.k === k) return driveCurveCache.c;
+    const n = 2048, c = new Float32Array(n);
+    const norm = Math.tanh(k);
+    for (let i = 0; i < n; i++){
+      const x = (i / (n - 1)) * 2 - 1;
+      c[i] = Math.tanh(k * x) / norm;
+    }
+    driveCurveCache = { k: k, c: c };
+    return c;
+  }
+
+  /* 软限幅：|x| ≤ 0.8 时完全线性，超过后平滑压到 0.99。
+     零延迟（WaveShaper 不做 lookahead），不会给节拍器/音符
+     带来任何可听延迟 —— 这点在改之前是硬要求。
+     小于阈值的信号一丝不变，所以不会糊掉正常音量下的音色。 */
+  let limiterCurveCache = null;
+  function limiterCurve(){
+    if (limiterCurveCache) return limiterCurveCache;
+    const n = 4096, c = new Float32Array(n);
+    /* knee 定在 0.85（-1.4dBFS）：实测加谐波激励后，E2 的峰值会到
+       -0.9dBFS —— 用 0.8 的话会被压掉近 1dB，低音弦的起音就钝了。
+       0.85 下这点超出只压 0.002，等于不介入；真正过 1.0 时仍然兜得住。 */
+    const knee = 0.85, ceil = 0.99;
+    for (let i = 0; i < n; i++){
+      const x = (i / (n - 1)) * 2 - 1;
+      const a = Math.abs(x);
+      let y;
+      if (a <= knee) y = a;
+      else y = knee + (ceil - knee) * Math.tanh((a - knee) / (ceil - knee));
+      c[i] = x < 0 ? -y : y;
+    }
+    limiterCurveCache = c;
+    return c;
+  }
+
+  function makeLimiter(ctx){
+    const ws = ctx.createWaveShaper();
+    ws.curve = limiterCurve();
+    ws.oversample = '4x';    /* 过采样，避免限幅本身产生混叠 */
+    return ws;
+  }
+
 (function(){
   'use strict';
 
@@ -1704,7 +1805,7 @@
   const STROBE_STRIPE  = 12;
 
   /* 表盘几何：完整半圆（-90° → +90°） */
-  const G_CX = 150, G_CY = 150, G_R = 131;
+  const G_CX = 150, G_CY = 150, G_R = 135;   /* 与节拍页同径：0.9 × 容器 */
   const G_DEG_PER_CENT = 1.8;   /* 1 音分 = 1.8°（满量程 ±50 音分 = ±90°） */
 
   const appEl       = document.getElementById('app');
@@ -2130,6 +2231,82 @@
     return sampleJobs[key];
   }
 
+  /* ══════════════════════════════════════════════
+     手机外放补偿
+     ══════════════════════════════════════════════
+     实测（22050Hz 采样，按 LUFS 归一）：
+
+       吉他六弦   E2  A2  D3  G3  B3  E4
+       外放损失  14.7 13.1 8.7 13.1 13.9 3.8 dB
+
+     手机小喇叭 400Hz 以下基本发不出声，而吉他低音弦的基频
+     全在这个区间（E2=82Hz、A2=110Hz、D3=147Hz）。
+     所以「听不到弦音」不是音量小，是频段被物理滤掉了 ——
+     单靠加大音量只能让中高频更拆，低音弦还是没声。
+
+     解法是谐波激励：把低频非线性失真成 2/3/4 次谐波。
+     人耳有「缺失基频」效应，只有 2、3、4 次谐波也能听出 82Hz
+     这个音高，而谐波（164/246/328Hz）正好落在手机能放的频段。
+
+     拓扑（经典 bass exciter）：
+        原信号 ─────────────────────────────┐
+          └→ 低通250 → 驱动 → 高通450 → 激励增益 ┴→ 限幅 → 输出
+     先低通再去驱动，保证只对低频做非线性 —— 否则中高频也会被
+     拆成一片刺耳的互调失真。
+     后级再高通，只留新生的谐波，不与原信号重复。 */
+  const SAMPLE_GAIN = {
+    /* 吉他/尤克：原始峰值已在 -3dBFS，几乎没有 headroom。
+       增益之上还有 0.9 的总系数，所以这里卡在 1.25 以内 ——
+       实测超过就会把限幅器推进 knee（0.8），瞬态开始被压。
+       低音弦的“听得见”靠下面的谐波激励，不靠硬提增益。 */
+    guitar_A2: 1.20, guitar_E4: 1.25,
+    guitar_D3: 1.00, guitar_G3: 1.00, guitar_B3: 1.00, guitar_E2: 1.00,
+    /* 尤克里里：同上，卡 1.25 */
+    uke_A4: 1.25, uke_C4: 1.26, uke_E4: 1.25, uke_G4: 1.27,
+    /* 钢琴：峰值比吉他低 4-15dB，按「-22 LUFS、最多 +9dB」补偿。
+       高音 C6-C8 原始 RMS 极低但峰值不缺，所以卡 +9dB 上限，
+       再高会把尾音底噪一并抬出来。 */
+    piano_C1: 1.45,  piano_C2: 1.84,  piano_C3: 1.80,  piano_C4: 2.40,
+    piano_C5: 2.82,  piano_C6: 2.82,  piano_C7: 2.82,  piano_C8: 2.82,
+    piano_Fs1: 1.14, piano_Fs2: 1.32, piano_Fs3: 1.93, piano_Fs4: 2.24,
+    piano_Fs5: 2.82, piano_Fs6: 2.82, piano_Fs7: 2.82
+  };
+
+  /* 激励强度：按实测外放损失分配（0 = 不激励）
+     E4 只丢 3.8dB，不开 —— 多开只会把音色弄脏。 */
+  const SAMPLE_EXCITE = {
+    guitar_E2: 1.00,   /* 丢 14.7dB */
+    guitar_B3: 0.95,   /* 丢 13.9dB */
+    guitar_A2: 0.90,   /* 丢 13.1dB */
+    guitar_G3: 0.90,   /* 丢 13.1dB */
+    guitar_D3: 0.60,   /* 丢  8.7dB */
+    piano_C1: 0.55, piano_Fs1: 0.55,
+    piano_C2: 0.45, piano_Fs2: 0.45,
+    piano_C3: 0.30, piano_Fs3: 0.30
+  };
+
+
+  /* 采样总总线：全局限幅器只建一次。
+     以前是每次点击都新建一串 Gain/WaveShaper —— 按快了就是几十个
+     废弃节点挂在 destination 上，不回收。 */
+  let sampleBus = null, sampleBusCtx = null;
+  function getSampleBus(ctx){
+    /* 必须校验总线属于当前 context：
+       stop() 会 audioCtx.close() 并把 audioCtx 置空，重新点音符时
+       ensureAudioSync() 会建一个新 context。若沿用旧总线，
+       音频会连到已关闭的 context 上 —— 点下去一点声音都没有。
+       所以记下建总线时的 ctx，不是同一个就重建。 */
+    if (sampleBus && sampleBusCtx === ctx) return sampleBus;
+    const g = ctx.createGain();
+    g.gain.value = 1;
+    const lim = makeLimiter(ctx);
+    g.connect(lim);
+    lim.connect(ctx.destination);
+    sampleBus = g;
+    sampleBusCtx = ctx;
+    return sampleBus;
+  }
+
   /* 播放已缓存的采样；没缓存返回 false */
   function fireSample(key, rate, dur){
     const buf = sampleBufs[key];
@@ -2137,10 +2314,48 @@
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
     if (rate && Math.abs(rate - 1) > 1e-4) src.playbackRate.value = rate;
+
     const g = audioCtx.createGain();
-    g.gain.value = 0.9;
+    g.gain.value = 0.9 * (SAMPLE_GAIN[key] || 1);
+    const out = getSampleBus(audioCtx);
+
     src.connect(g);
-    g.connect(audioCtx.destination);
+    g.connect(out);
+
+    /* 手机外放补偿：只有低频损失严重的采样才走这条支路 */
+    const excit = SAMPLE_EXCITE[key] || 0;
+    if (excit > 0){
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 300;
+      lp.Q.value = 0.7;
+
+      const shaper = audioCtx.createWaveShaper();
+      shaper.curve = driveCurve(5.0);
+      shaper.oversample = '4x';
+
+      /* 高通卡在 400：手机喇叭的下限就在这附近。
+         一开始写成 450，结果 G3(196Hz) 的二次谐波 392 被一起滤掉，
+         实测只提升 2.2dB —— 正好差在这一次谐波上。 */
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 400;
+      hp.Q.value = 0.7;
+
+      const eg = audioCtx.createGain();
+      eg.gain.value = 0.9 * excit * 0.62;
+
+      src.connect(lp);
+      lp.connect(shaper);
+      shaper.connect(hp);
+      hp.connect(eg);
+      eg.connect(out);
+      /* 源结束就断开整条支路，不留悬挂节点 */
+      src.onended = function(){
+        try { lp.disconnect(); shaper.disconnect(); hp.disconnect(); eg.disconnect(); } catch(e){}
+      };
+    }
+
     src.start();
     playingRef = true;
     setTimeout(() => { playingRef = false; }, ((dur || 1.4) + 0.15) * 1000);
@@ -2826,6 +3041,8 @@
   function stop(){
     running = false;
     if (audioCtx){ try { audioCtx.close(); } catch(e){} audioCtx = null; }
+    /* 总线绑在已关闭的 context 上，一起丢掉 */
+    sampleBus = null; sampleBusCtx = null;
     analyser = null;
     smoothLevel = 0;
     paintLevel(0);
@@ -2862,11 +3079,11 @@
      startBtn 已隐藏，但它仍是状态与文字的唯一来源，
      这里只把点击转过去，不改动 start()/stop() 的任何逻辑。
 
-     触发区严格限定在圆内 —— SVG viewBox 是 300，圆半径 131，
+     触发区严格限定在圆内 —— SVG viewBox 是 300，圆半径 135，
      所以可见圆只占外接正方形的 87%（面积约 76%），四角是死区。 */
   const gaugeSvg  = gaugeBlock.querySelector('.gauge-svg');
-  /* ratio = 圆半径 / 半宽。viewBox 300、圆 r=131 → 131 / 150 */
-  const RING_RATIO = 131 / 150;
+  /* ratio = 圆半径 / 半宽。viewBox 300、圆 r=135 → 135 / 150 */
+  const RING_RATIO = 135 / 150;
   gaugeBlock.addEventListener('click', (e) => {
     if (startBtn.disabled) return;        /* 「启动中」时忽略重复点击 */
     if (!hitCircle(gaugeSvg, e.clientX, e.clientY, RING_RATIO)) return;
@@ -2906,10 +3123,18 @@
   var inApp   = !!(bridge && bridge.isNativeApp && bridge.isNativeApp());
   var isAsset = location.hostname === 'appassets.androidplatform.net';
 
-  /* 已在 App 内运行 → 隐藏“下载安装”入口 */
+  /* 已在 App 内运行 → 隐藏“下载安装”入口，并标记页面状态 */
   if (inApp) {
+    document.body.classList.add('in-app');
     var row = document.getElementById('appRow');
     if (row) row.style.display = 'none';
+  }
+
+  /* 离线版（打包进 APK 的 offline.html）构建时就把 #appRow 整个删了，
+     桥接万一没注入也拿不到 inApp。这里按「节点不存在」再兜一下：
+     没有下载入口，节拍页就真的一个设置项都不剩了。 */
+  if (!document.getElementById('appRow')) {
+    document.body.classList.add('in-app');
   }
 
   /* 仅浏览器环境注册 Service Worker，提供离线缓存 */
@@ -3087,10 +3312,13 @@ function noiseBuffer(ctx){
   return buf;
 }
 
-/* 发一声：正弦振荡 + 可选噪声，最通用的形状 */
+/* 发一声：正弦振荡 + 可选噪声，最通用的形状
+   opt.dest —— 输出目的地。传了就连过去（节拍器要经过限幅总线），
+   没传则直接连 destination（兼容旧调用）。 */
 function hitTone(ctx, at, opt){
   const decay = opt.decay;
   const peak  = opt.peak;
+  const dest  = opt.dest || ctx.destination;
 
   if (opt.freq){
     const osc = ctx.createOscillator();
@@ -3105,7 +3333,7 @@ function hitTone(ctx, at, opt){
     env.gain.linearRampToValueAtTime(peak, at + (opt.attack || 0.0012));
     env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
     osc.connect(env);
-    env.connect(ctx.destination);
+    env.connect(dest);
     osc.start(at);
     osc.stop(at + decay + 0.01);
   }
@@ -3127,7 +3355,7 @@ function hitTone(ctx, at, opt){
     env.gain.setValueAtTime(peak * opt.noise, at);
     env.gain.exponentialRampToValueAtTime(0.0001, at + (opt.noiseDecay || 0.012));
     node.connect(env);
-    env.connect(ctx.destination);
+    env.connect(dest);
     src.start(at);
     src.stop(at + (opt.noiseDecay || 0.012) + 0.005);
   }
@@ -3137,91 +3365,91 @@ function hitTone(ctx, at, opt){
 const CLICK_STYLES = [
   {
     id: 'click', name: '电子', desc: '经典滴答',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 1760 : (kind === 1 ? 1320 : 1050);
       const g = kind === 2 ? 1.0  : (kind === 1 ? 0.72 : 0.52);
       hitTone(ctx, at, {
         freq: f, slide: 0.86, decay: kind === 2 ? 0.055 : 0.038,
-        peak: g * vol * 0.42,
+        peak: g * vol * 0.85, dest: dest,
         noise: 0.5, noiseFreq: f * 0.55, noiseQ: 1.2
       });
     }
   },
   {
     id: 'wood', name: '木鱼', desc: '木质短促',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 1250 : (kind === 1 ? 1050 : 880);
       const g = kind === 2 ? 1.0  : (kind === 1 ? 0.75 : 0.55);
       /* 木块：两个高分音 + 快速衰减，噪声带通在高频 */
       hitTone(ctx, at, {
         freq: f * 2, wave: 'triangle', slide: 0.72, decay: 0.045,
-        peak: g * vol * 0.30,
+        peak: g * vol * 0.72, dest: dest,
         noise: 0.85, noiseFreq: 2400, noiseQ: 2.4, noiseDecay: 0.009
       });
     }
   },
   {
     id: 'mech', name: '机械', desc: '老式节拍器',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 3100 : (kind === 1 ? 2600 : 2200);
       const g = kind === 2 ? 1.0  : (kind === 1 ? 0.78 : 0.60);
       /* 金属咔哒：极短的方波 + 大量高频噪声 */
       hitTone(ctx, at, {
         freq: f, wave: 'square', slide: 0.55, decay: 0.016,
-        peak: g * vol * 0.16,
+        peak: g * vol * 0.45, dest: dest,
         noise: 1.0, noiseFreq: 4200, noiseQ: 0.9, noiseDecay: 0.014
       });
     }
   },
   {
     id: 'stick', name: '鼓棒', desc: '录音棚敲击',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 980 : (kind === 1 ? 820 : 690);
       const g = kind === 2 ? 1.0 : (kind === 1 ? 0.76 : 0.56);
       /* 鼓棒敲边：中频 + 短噪声，带一点木质 */
       hitTone(ctx, at, {
         freq: f, slide: 0.7, decay: 0.042,
-        peak: g * vol * 0.34,
+        peak: g * vol * 0.76, dest: dest,
         noise: 0.9, noiseFreq: 1600, noiseQ: 1.6, noiseDecay: 0.016
       });
     }
   },
   {
     id: 'beep', name: '电子哔', desc: '纯音、干净',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 1320 : (kind === 1 ? 1100 : 880);
       const g = kind === 2 ? 1.0  : (kind === 1 ? 0.74 : 0.54);
       const decay = kind === 2 ? 0.085 : 0.065;
       hitTone(ctx, at, {
         freq: f, wave: 'square', decay: decay,
-        peak: g * vol * 0.18,
+        peak: g * vol * 0.62, dest: dest,
         attack: 0.004
       });
     }
   },
   {
     id: 'kick', name: '低鼓', desc: '低频、沉稳',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 150 : (kind === 1 ? 120 : 96);
       const g = kind === 2 ? 1.0 : (kind === 1 ? 0.72 : 0.50);
       /* 低频鼓：频率快速下滑，衰减稍长 */
       hitTone(ctx, at, {
         freq: f, slide: 0.42, decay: kind === 2 ? 0.12 : 0.095,
-        peak: g * vol * 0.55, attack: 0.002,
+        peak: g * vol * 0.95, attack: 0.002, dest: dest,
         noise: 0.18, noiseFreq: 420, noiseType: 'lowpass', noiseDecay: 0.02
       });
     }
   },
   {
     id: 'soft', name: '柔音', desc: '轻、不抢拍',
-    play(ctx, at, kind, vol){
+    play(ctx, at, kind, vol, dest){
       const f = kind === 2 ? 880 : (kind === 1 ? 740 : 620);
       const g = kind === 2 ? 1.0 : (kind === 1 ? 0.70 : 0.48);
       /* 柔和的三角波，慢起音、长衰减 */
       hitTone(ctx, at, {
         freq: f, wave: 'triangle', slide: 0.92,
         decay: kind === 2 ? 0.10 : 0.08,
-        peak: g * vol * 0.30, attack: 0.006
+        peak: g * vol * 0.62, attack: 0.006, dest: dest
       });
     }
   }
@@ -3232,6 +3460,7 @@ CLICK_STYLES.forEach(s => { CLICK_BY_ID[s.id] = s; });
 
 function Metronome() {
   this.ctx = null;
+  this.bus = null;            // 输出总线（含限幅），ensureCtx 时建立
 
   this.bpm = 120;
   this.num = 4;               // 分子
@@ -3276,11 +3505,30 @@ Metronome.prototype.ensureCtx = function () {
   if (!this.ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     this.ctx = new AC();
+    this.buildBus();
   }
   if (this.ctx.state === 'suspended') {
     this.ctx.resume();
   }
   return this.ctx;
+};
+
+/* ── 输出总线 ──
+   所有拍子汇入一个限幅器再到 destination。
+   以前每声直连 destination：为了听得见而提高峰值后，
+   重拍的正弦与噪声包络相加会超过 1.0 —— 手机扬声器上就是破音。
+   限幅器 |x| > 0.8 才介入，正常音量下一丝不变，也不引入延迟。 */
+Metronome.prototype.buildBus = function () {
+  if (!this.ctx || this.bus) return this.bus;
+  const g = this.ctx.createGain();
+  g.gain.value = 1;
+  const lim = this.ctx.createWaveShaper();
+  lim.curve = limiterCurve();
+  lim.oversample = '4x';
+  g.connect(lim);
+  lim.connect(this.ctx.destination);
+  this.bus = g;
+  return g;
 };
 
 /* ── 合成一声"嗒" ──
@@ -3294,7 +3542,7 @@ Metronome.prototype.ensureCtx = function () {
 */
 Metronome.prototype.click = function (at, kind) {
   const style = CLICK_BY_ID[this.styleId] || CLICK_STYLES[0];
-  style.play(this.ctx, at, kind, this.volume);
+  style.play(this.ctx, at, kind, this.volume, this.bus || this.buildBus());
 };
 
 
@@ -3548,6 +3796,18 @@ Metronome.prototype.meterLabel = function () {
     el.pageMetro.classList.toggle('active',  isMetro);
 
     document.body.dataset.page = page;
+
+    /* 设置面板跨页残留：在调音页开着面板切到节拍页，
+       面板里只剩「下载安装」；若在 App 内连这一项也没有，
+       就会露出一个空条。切页时直接收起。 */
+    try {
+      const sp = document.getElementById('settingsPanel');
+      const sb = document.getElementById('settingsBtn');
+      if (sp && sp.classList.contains('open')) {
+        sp.classList.remove('open');
+        if (sb) sb.classList.remove('active');
+      }
+    } catch (e) {}
 
     if (isMetro) {
       // 切到节拍页：停掉调音器，释放麦克风。
