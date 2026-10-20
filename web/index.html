@@ -471,7 +471,11 @@
   .level-seg i.tuned{ background:var(--success) }
 
   /* 频闪视图 */
-  .strobe-view{display:none}
+  /* 必须自带宽度。.center 是 flex 容器，.strobe-view 作为 flex 项默认由内容定宽；
+     canvas 的 width:100% 又要反过来问父级要宽度 —— 两边互相等，最后塌成 0，
+     整个频闪页就是一片黑（只剩两道边框重叠成一条竖线）。
+     max-width 与表盘同宽，两个视图切换时宽度观感一致。 */
+  .strobe-view{display:none;width:100%;max-width:310px}
   .strobe-view.show{display:block}
   .gauge-block.hide{display:none}
   #strobeCanvas{
@@ -736,6 +740,9 @@
     /* 320 宽、568 高：这一档圆环被宽度限死，靠 flex 撑开会把圆环推低。
        直接封顶圆环区高度，让圆环落在与节拍页相同的圆心（298）。 */
     .center{max-height:290px}
+    /* 频闪画布固定 220 高时会顶到弦按钮（这一档弦按钮上提了 33px），
+       降到 200 让它完整落在圆环区里。 */
+    #strobeCanvas{height:200px}
     .target-area{margin-top:-33px}
     .strings{margin-top:6px}
     .level-row{flex-direction:row;align-items:center;gap:8px;margin-top:16px}
@@ -743,12 +750,14 @@
   }
   @media (max-height:560px){
     .gauge-svg{ max-width:160px }
+    #strobeCanvas{height:180px}
     .note .letter{font-size:48px}
     .note .oct{font-size:16px}
     .header{margin-bottom:16px}
   }
   @media (max-height:430px){
     .gauge-svg{ max-width:132px }
+    #strobeCanvas{height:150px}
     .note .letter{font-size:38px}
     .note .oct{font-size:13px}
     .header{margin-bottom:10px}
@@ -1789,7 +1798,10 @@
   const NEEDLE_ZETA     = 0.52;
   const NEEDLE_DEADZONE = 0.10;   /* 度 */
   const NEEDLE_STOP_VEL = 1.5;    /* 度/秒 */
-  const STROBE_SPEED   = 1.0;
+  /* 每个音分偏差每秒走多少像素。旧写法是每帧加 1px，这里换成按秒积分，
+     速度取 60Hz 下的原值（1px/帧 × 60 帧）—— 观感与以前完全一致，
+     但 120Hz 屏上不会再快一倍。 */
+  const STROBE_SPEED   = 60;
   const STROBE_PERIOD  = 28;
   const STROBE_STRIPE  = 12;
 
@@ -1851,6 +1863,7 @@
   let needleTarget= 0;
   let lastNeedleTs= 0;
   let strobePhase = 0;
+  let lastStrobeTs = 0;   /* 频闪相位的时间基准，不能按帧数累加 */
   let smoothLevel = 0;
   let lastGoodTs  = 0;
   let missFrames  = 0;
@@ -2082,8 +2095,15 @@
   function resizeStrobe(){
     const dpr = window.devicePixelRatio || 1;
     const rect = strobeCanvas.getBoundingClientRect();
-    strobeCanvas.width  = Math.round(rect.width * dpr);
-    strobeCanvas.height = Math.round(rect.height * dpr);
+    /* 隐藏时尺寸是 0。这里绝不能把 canvas.width 写成 0 ——
+       canvas 的固有宽度会跟着变 0，.strobe-view 又靠内容定宽，
+       两边互等，下一次显示时永远撑不开（频闪页全黑就是这个原因）。 */
+    if (rect.width < 1 || rect.height < 1) return;
+    const w = Math.round(rect.width * dpr);
+    const h = Math.round(rect.height * dpr);
+    if (strobeCanvas.width !== w)  strobeCanvas.width  = w;
+    if (strobeCanvas.height !== h) strobeCanvas.height = h;
+    drawStrobe();   /* 切过来先画一帧静态条纹，不然是一块空画布 */
   }
   window.addEventListener('resize', resizeStrobe);
 
@@ -2919,7 +2939,12 @@
 
   let lastAnalysis = 0;
   function loop(ts){
-    if (!running) return;
+    if (!running){ lastStrobeTs = 0; return; }
+    /* 真实时间步长：频闪按秒积分，60Hz 与 120Hz 屏上速度和方向一致。
+       切后台回来时 ts 会跳很大，限幅到 50ms。 */
+    let dt = lastStrobeTs ? (ts - lastStrobeTs) / 1000 : (1 / 60);
+    lastStrobeTs = ts;
+    if (!(dt > 0) || dt > 0.05) dt = 1 / 60;
     if (!playingRef && ts - lastAnalysis > ANALYSIS_MS){
       lastAnalysis = ts;
       analyser.getFloatTimeDomainData(timeBuf);
@@ -2946,7 +2971,7 @@
     }
     updateNeedle(ts);
     if (Math.abs(smoothCents) >= 0.4){
-      strobePhase += smoothCents * STROBE_SPEED;
+      strobePhase += smoothCents * STROBE_SPEED * dt;
       if (strobePhase > 1e6)  strobePhase -= 1e6;
       if (strobePhase < -1e6) strobePhase += 1e6;
     }
@@ -2993,6 +3018,7 @@
       running = true;
       lastGoodTs = performance.now();
       lastAnalysis = 0; missFrames = 0; smoothLevel = 0;
+      lastStrobeTs = 0;
       resetSmoothing();
       micStatus.classList.add('on');
       micText.textContent = '监听中';
