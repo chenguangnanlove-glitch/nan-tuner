@@ -128,7 +128,7 @@
     background:var(--surface);
     border:0;
     border-radius:0;
-    padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) 0;
+    padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) calc(var(--space-4) + env(safe-area-inset-bottom));
     display:flex;
     flex-direction:column;
     justify-content:flex-start;
@@ -146,7 +146,7 @@
       max-height:calc(100dvh - 48px);
       border:1px solid var(--outline);
       border-radius:var(--radius-xl);
-      padding:var(--space-5) var(--space-5) 0;
+      padding:var(--space-5);
       box-shadow:var(--elev-3), inset 0 1px 0 rgba(240,235,227,.04);
     }
   }
@@ -158,14 +158,14 @@
     position:relative;
   }
   .brand{
-    display:flex;flex-direction:row;align-items:center;gap:var(--space-2);
-    flex:none;min-width:0;
+    display:flex;flex-direction:column;align-items:center;gap:var(--space-1);
+    flex:none;
   }
-  .brand-mark{width:32px;height:32px;flex:none;display:block}
-  .brand-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+  .brand-mark{width:36px;height:36px;flex:none;display:block}
+  .brand-text{display:flex;flex-direction:column;align-items:center}
   .brand-cn{
-    font-size:var(--fs-body);font-weight:var(--fw-title);line-height:1;
-    letter-spacing:0;color:var(--gold);
+    font-size:var(--fs-caption);font-weight:var(--fw-title);line-height:1;
+    letter-spacing:.04em;color:var(--gold);
     white-space:nowrap;
   }
   .brand-en{ display:none }
@@ -821,7 +821,7 @@
       justify-content:flex-start;
       row-gap:var(--space-2);
       border:0; border-radius:0;
-      padding:var(--space-2) var(--space-5) 0;
+      padding:var(--space-2) var(--space-5) calc(var(--space-2) + env(safe-area-inset-bottom));
     }
     #pageTuner.active{
       display:grid;
@@ -881,48 +881,50 @@
      节拍器样式（由 tools/add_metronome.py 插入）
      ══════════════════════════════════════════════════════ */
 
-  /* 底部导航：图标在上、文字在下，当前项是浅金胶囊 */
-  .bottom-nav{
-    flex:none;
+  /* 顶部胶囊：调音 / 节拍，滑块标出当前页 */
+  .app-tabs{
+    position:relative;
+    flex:1 1 auto;min-width:0;max-width:248px;
     display:flex;
-    align-items:stretch;
-    height:calc(64px + env(safe-area-inset-bottom));
-    padding:0 var(--space-2) env(safe-area-inset-bottom);
-    margin:0 calc(var(--space-5) * -1);
-    background:var(--surface);
-    border-top:1px solid var(--outline);
+    height:48px;
+    background:var(--surface-2);
+    border-radius:var(--radius-lg);
+    box-shadow:inset 0 0 0 1px var(--outline);
+    padding:4px;
     box-sizing:border-box;
-    z-index:4;
   }
+  .app-tabs-thumb{
+    position:absolute;
+    top:4px;left:4px;
+    width:calc(50% - 4px);
+    height:calc(100% - 8px);
+    border-radius:var(--radius-md);
+    background:var(--surface-selected);
+    box-shadow:inset 0 0 0 1px var(--outline-accent);
+    transition:transform 200ms cubic-bezier(.2,0,0,1);
+    pointer-events:none;
+  }
+  .app-tabs[data-index="1"] .app-tabs-thumb{ transform:translateX(100%) }
   .app-tab{
+    position:relative;z-index:1;
     appearance:none;border:0;background:transparent;
     color:var(--text-2);
-    font-family:inherit;font-size:var(--fs-caption);font-weight:var(--fw-title);
+    font-family:inherit;font-size:var(--fs-body);font-weight:var(--fw-title);
     letter-spacing:.02em;
-    padding:6px 0 4px;cursor:pointer;
+    padding:0 4px;cursor:pointer;
     transition:color 160ms cubic-bezier(.2,0,0,1);
     -webkit-tap-highlight-color:transparent;
     flex:1 1 0;min-width:0;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    display:flex;align-items:center;justify-content:center;gap:6px;
   }
-  .app-tab:active{ transform:scale(.98) }
   .app-tab.active{ color:var(--accent-light) }
-  .nav-icon{
-    width:64px;height:32px;border-radius:16px;
-    display:flex;align-items:center;justify-content:center;
-    transition:background 200ms cubic-bezier(.2,0,0,1);
-  }
-  .app-tab.active .nav-icon{
-    background:var(--surface-selected);
-  }
-  .app-tab .icon{ width:24px;height:24px }
+  .app-tab .icon{ width:18px;height:18px }
 
   /* 页面容器：顶栏和底栏之间的一列，内部均分 */
   .page{display:none;flex-direction:column;flex:1;min-height:0}
   .page.active{
     display:flex;
     justify-content:space-between;
-    padding-bottom:var(--space-2);
     animation:pageIn 200ms cubic-bezier(.2,0,0,1);
   }
   @keyframes pageIn{
@@ -1404,7 +1406,7 @@
     .sound-sheet-body,
     .meter-sheet,
     .meter-sheet-body,
-    .nav-icon{
+    .app-tabs-thumb{
       transition:none;
     }
   }
@@ -1457,6 +1459,24 @@
         <div class="brand-cn">始信音乐</div>
         <div class="brand-en">TUNER · METRONOME</div>
       </div>
+    </div>
+    <div class="app-tabs" id="appTabs" role="tablist">
+      <span class="app-tabs-thumb" id="tabThumb"></span>
+      <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.5 3.5v6.4a3.5 3.5 0 0 0 7 0V3.5"/>
+          <path d="M12 13.4V20.5"/>
+          <path d="M9.2 3.5h1.6M13.2 3.5h1.6"/>
+        </svg>
+        <span>调音</span>
+      </button>
+      <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.2 20.5h7.6l2.4-16.3H5.8L8.2 20.5z"/>
+          <path d="M12 20.2 15.4 7.2"/>
+        </svg>
+        <span>节拍</span>
+      </button>
     </div>
     <div class="header-right">
       <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
@@ -1614,28 +1634,6 @@
 
     </div>
   </div>
-
-  <nav class="bottom-nav" id="appTabs" role="tablist">
-    <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
-      <span class="nav-icon">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8.5 3.5v6.4a3.5 3.5 0 0 0 7 0V3.5"/>
-          <path d="M12 13.4V20.5"/>
-          <path d="M9.2 3.5h1.6M13.2 3.5h1.6"/>
-        </svg>
-      </span>
-      <span>调音</span>
-    </button>
-    <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
-      <span class="nav-icon">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8.2 20.5h7.6l2.4-16.3H5.8L8.2 20.5z"/>
-          <path d="M12 20.2 15.4 7.2"/>
-        </svg>
-      </span>
-      <span>节拍</span>
-    </button>
-  </nav>
 
   <div class="settings-panel" id="settingsPanel">
     <div class="settings-inner">
