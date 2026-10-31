@@ -54,12 +54,13 @@ TEST = """
 
       setTimeout(function(){
         out.push('点击后: ' + b.textContent.trim());
-        var mt = document.getElementById('micText');
-        out.push('麦克风状态: ' + (mt ? mt.textContent : '?'));
+        var sb = document.getElementById('settingsBtn');
+        out.push('小太阳: ' + (sb ? sb.getAttribute('aria-label') : '?'));
+        out.push('运行中: ' + (sb ? sb.classList.contains('live') : '?'));
         var cs = document.getElementById('centsText');
         out.push('提示文字: ' + (cs ? cs.textContent : '?'));
-        var ms = document.getElementById('micStatus');
-        out.push('状态灯 on: ' + (ms ? ms.classList.contains('on') : '?'));
+        var app = document.getElementById('app');
+        out.push('监听中: ' + (app ? app.classList.contains('listening') : '?'));
         render();
       }, 2500);
     }, 500);

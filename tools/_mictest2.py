@@ -58,10 +58,9 @@ INJECT = """
 
       setTimeout(function(){
         log.push('点击后按钮: ' + b.textContent.trim());
-        var mt = document.getElementById('micText');
-        log.push('麦克风: ' + (mt ? mt.textContent : '?'));
-        var ms = document.getElementById('micStatus');
-        log.push('状态灯: ' + (ms ? (ms.classList.contains('on') ? '亮' : '灭') : '?'));
+        var sb = document.getElementById('settingsBtn');
+        log.push('小太阳: ' + (sb ? sb.getAttribute('aria-label') : '?'));
+        log.push('运行中: ' + (sb ? (sb.classList.contains('live') ? '是' : '否') : '?'));
         var cs = document.getElementById('centsText');
         log.push('提示: ' + (cs ? cs.textContent : '?'));
         var ac = window.AudioContext || window.webkitAudioContext;

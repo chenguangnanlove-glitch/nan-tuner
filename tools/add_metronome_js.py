@@ -205,11 +205,11 @@ UI_JS = r"""
     if (isMetro) {
       // 切到节拍页：停掉调音器，释放麦克风。
       // running/stop 在调音器自己的闭包里，这里拿不到，
-      // 所以看麦克风状态灯（由调音器维护），再点它的按钮触发停止。
+      // 所以看 .app.listening（由调音器在开听时加上），再点它的按钮触发停止。
       try {
-        const mic = document.getElementById('micStatus');
+        const app = document.getElementById('app');
         const tunerBtn = document.getElementById('startBtn');
-        if (mic && mic.classList.contains('on') && tunerBtn) {
+        if (app && app.classList.contains('listening') && tunerBtn) {
           tunerBtn.click();
         }
       } catch (e) {}
@@ -566,6 +566,8 @@ UI_JS = r"""
     el.bpmValue.classList.add('playing');
     el.center.classList.add('playing');
     el.ring.setAttribute('aria-label', '节拍器运行中，点一下停止');
+    document.body.classList.add('metro-live');
+    if (window.syncSettingsLive) window.syncSettingsLive();
   }
 
   function stopMetro() {
@@ -575,6 +577,8 @@ UI_JS = r"""
     el.center.classList.remove('playing');
     el.ring.setAttribute('aria-label', '节拍器已停止，点一下开始');
     clearBeatHighlight();
+    document.body.classList.remove('metro-live');
+    if (window.syncSettingsLive) window.syncSettingsLive();
   }
 
   el.ring.addEventListener('pointerdown', onDown);
