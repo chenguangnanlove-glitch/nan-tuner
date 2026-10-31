@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0e0c0a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>nan-tuner</title>
+<title>调音·节拍</title>
 <style>
   /* Roboto 只覆盖西文和数字（拉丁子集，本地 woff2）。
      中文不在 unicode-range 里，直接用后面的系统黑体，不访问 Google Fonts。 */
@@ -205,11 +205,12 @@
     background:var(--surface-selected);
     box-shadow:inset 0 0 0 1px var(--outline-accent);
   }
-  .settings-btn svg{
-    width:20px;height:20px;
-    transition:transform var(--t-press);
+  /* 页面图标：24 网格、圆角线条。颜色跟按钮走，默认次要文字，选中为金。 */
+  .icon{
+    width:24px;height:24px;flex:none;display:block;
+    fill:none;stroke:currentColor;
+    stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
   }
-  .settings-btn.active svg{transform:rotate(60deg)}
 
   /* 设置：底部抽屉。遮罩淡入，卡片从下方滑入。 */
   .settings-panel{
@@ -914,11 +915,7 @@
   .app-tab.active .nav-icon{
     background:var(--surface-selected);
   }
-  .app-tab svg{
-    width:22px;height:22px;flex:none;
-    fill:none;stroke:currentColor;
-    stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
-  }
+  .app-tab .icon{ width:24px;height:24px }
 
   /* 页面容器：顶栏和底栏之间的一列，内部均分 */
   .page{display:none;flex-direction:column;flex:1;min-height:0}
@@ -979,13 +976,12 @@
   .sound-sheet-close,
   .meter-sheet-close{
     appearance:none;border:0;background:transparent;
-    color:var(--accent-light);
-    font-family:inherit;font-size:var(--fs-body);font-weight:500;
-    padding:var(--space-2) var(--space-1);cursor:pointer;
-    letter-spacing:.04em;
+    color:var(--text-2);
+    width:40px;height:40px;padding:0;cursor:pointer;
     border-radius:var(--radius-sm);
+    display:flex;align-items:center;justify-content:center;
     -webkit-tap-highlight-color:transparent;
-    transition:background var(--t-press), transform var(--t-press);
+    transition:background var(--t-press), color var(--t-press), transform var(--t-press);
   }
   .sound-sheet-close:active,
   .meter-sheet-close:active{ transform:scale(.98); background:var(--surface-selected); }
@@ -1061,14 +1057,7 @@
     color:var(--accent-light);
     box-shadow:inset 0 0 0 1px var(--outline-accent);
   }
-  .meter-btn .chev{
-    width:9px;height:9px;flex:none;
-    opacity:.55;
-  }
-  .meter-btn .chev path{
-    stroke:currentColor;stroke-width:2;
-    fill:none;stroke-linecap:round;stroke-linejoin:round;
-  }
+  .meter-btn .icon{ width:20px;height:20px }
 
   /* ── 圆环调速区 ── */
   .metro-ring-area{
@@ -1447,7 +1436,7 @@
 
   <div class="header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="nan-tuner">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
         <defs>
           <linearGradient id="brandGrad" x1="4.7" y1="4" x2="27.3" y2="28" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#f6dfb6"/>
@@ -1465,16 +1454,16 @@
         <path d="M 18.67 14.0 C 23.0 14.0 27.0 10.33 27.33 4.0 C 21.67 4.0 17.67 9.0 18.67 14.0 Z" fill="url(#brandGrad)" opacity=".84"/>
       </svg>
       <div class="brand-text">
-        <div class="brand-cn">nan-tuner</div>
+        <div class="brand-cn">始信音乐</div>
         <div class="brand-en">TUNER · METRONOME</div>
       </div>
     </div>
     <div class="header-right">
       <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
       <button class="settings-btn" id="settingsBtn" type="button" aria-label="设置">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="3"/>
-          <path d="M12 2.5v2M12 19.5v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2.5 12h2M19.5 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.08-1.51 1.7 1.7 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.68 15a1.7 1.7 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.68a1.7 1.7 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/>
         </svg>
       </button>
     </div>
@@ -1538,9 +1527,13 @@
     <div class="strings guitar" id="stringsEl"></div>
     <div class="piano-area" id="pianoArea">
       <div class="octave-row">
-        <button class="oct-btn" id="octDown" type="button">◀</button>
+        <button class="oct-btn" id="octDown" type="button" aria-label="降低八度">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>
+        </button>
         <div class="oct-display"><span id="octValue">C4</span></div>
-        <button class="oct-btn" id="octUp" type="button">▶</button>
+        <button class="oct-btn" id="octUp" type="button" aria-label="升高八度">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </button>
       </div>
       <div class="piano-keys" id="pianoKeys"></div>
     </div>
@@ -1571,15 +1564,11 @@
         <button class="meter-btn sound-btn" id="soundBtn" type="button"
                 aria-label="节拍音色">
           <span id="soundLabel">电子</span>
-          <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
-            <path d="M2 4 L5 7 L8 4"/>
-          </svg>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></svg>
         </button>
         <button class="meter-btn" id="meterBtn" type="button">
           <span id="meterLabel">4/4</span>
-          <svg class="chev" viewBox="0 0 10 10" aria-hidden="true">
-            <path d="M2 4 L5 7 L8 4"/>
-          </svg>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></svg>
         </button>
       </div>
 
@@ -1629,18 +1618,19 @@
   <nav class="bottom-nav" id="appTabs" role="tablist">
     <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
       <span class="nav-icon">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8 3.5v6.2a4 4 0 0 0 8 0V3.5"/>
-          <path d="M12 13.7v6.8"/>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.5 3.5v6.4a3.5 3.5 0 0 0 7 0V3.5"/>
+          <path d="M12 13.4V20.5"/>
+          <path d="M9.2 3.5h1.6M13.2 3.5h1.6"/>
         </svg>
       </span>
       <span>调音</span>
     </button>
     <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
       <span class="nav-icon">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M9 3.5h6l3.2 17H5.8z"/>
-          <path d="M12 18.2 15.3 6.8"/>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.2 20.5h7.6l2.4-16.3H5.8L8.2 20.5z"/>
+          <path d="M12 20.2 15.4 7.2"/>
         </svg>
       </span>
       <span>节拍</span>
@@ -1653,9 +1643,13 @@
       <div class="setting-row">
         <span class="setting-label">标准音高</span>
         <div class="a4-control">
-          <button class="a4-btn" id="a4Down" type="button">−</button>
+          <button class="a4-btn" id="a4Down" type="button" aria-label="降低标准音高">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
           <span class="a4-value" id="a4Value">440<span class="unit">Hz</span></span>
-          <button class="a4-btn" id="a4Up" type="button">+</button>
+          <button class="a4-btn" id="a4Up" type="button" aria-label="升高标准音高">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
         </div>
       </div>
       <div class="setting-row">
@@ -1678,7 +1672,9 @@
       <div class="sheet-grab" id="meterGrab"><span class="sheet-handle"></span></div>
       <div class="meter-sheet-head">
         <span class="meter-sheet-title">拍号</span>
-        <button class="meter-sheet-close" id="meterClose" type="button">完成</button>
+        <button class="meter-sheet-close" id="meterClose" type="button" aria-label="关闭">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
       </div>
       <div class="meter-wheels">
         <div class="meter-wheel" id="numWheel" role="slider" tabindex="0"
@@ -1694,7 +1690,9 @@
       <div class="sheet-grab" id="soundGrab"><span class="sheet-handle"></span></div>
       <div class="sound-sheet-head">
         <span class="sound-sheet-title">节拍音色</span>
-        <button class="sound-sheet-close" id="soundClose" type="button">完成</button>
+        <button class="sound-sheet-close" id="soundClose" type="button" aria-label="关闭">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
       </div>
       <div class="sound-grid" id="soundGrid"></div>
     </div>
