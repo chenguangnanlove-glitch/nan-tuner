@@ -26,6 +26,12 @@
   [headers.values]
     Cache-Control = "public, max-age=604800"
 
+# 本地字体：woff2，不走 Google Fonts
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
 # PWA 清单
 [[headers]]
   for = "/manifest.webmanifest"
