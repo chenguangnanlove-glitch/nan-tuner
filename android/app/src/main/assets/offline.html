@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0e0c0a">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>调音·节拍</title>
+<title>nan-tuner</title>
 <style>
   /* Roboto 只覆盖西文和数字（拉丁子集，本地 woff2）。
      中文不在 unicode-range 里，直接用后面的系统黑体，不访问 Google Fonts。 */
@@ -128,11 +128,11 @@
     background:var(--surface);
     border:0;
     border-radius:0;
-    padding:calc(var(--space-5) + env(safe-area-inset-top)) var(--space-5) calc(var(--space-5) + env(safe-area-inset-bottom));
+    padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) 0;
     display:flex;
     flex-direction:column;
-    justify-content:space-between;
-    row-gap:var(--space-4);
+    justify-content:flex-start;
+    row-gap:0;
     box-shadow:none;
     overflow:hidden;
   }
@@ -146,7 +146,7 @@
       max-height:calc(100dvh - 48px);
       border:1px solid var(--outline);
       border-radius:var(--radius-xl);
-      padding:var(--space-5);
+      padding:var(--space-5) var(--space-5) 0;
       box-shadow:var(--elev-3), inset 0 1px 0 rgba(240,235,227,.04);
     }
   }
@@ -155,18 +155,17 @@
   .header{
     display:flex;align-items:center;justify-content:space-between;
     gap:var(--space-2);margin:0;flex:none;
-    position:relative;   /* 设置面板以它为锚点做浮层 */
-    z-index:2;
+    position:relative;
   }
   .brand{
-    display:flex;flex-direction:column;align-items:center;gap:var(--space-1);
-    flex:none;
+    display:flex;flex-direction:row;align-items:center;gap:var(--space-2);
+    flex:none;min-width:0;
   }
-  .brand-mark{width:38px;height:38px;flex:none;display:block}
-  .brand-text{display:flex;flex-direction:column;align-items:center}
+  .brand-mark{width:32px;height:32px;flex:none;display:block}
+  .brand-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
   .brand-cn{
-    font-size:var(--fs-caption);font-weight:500;line-height:1;
-    letter-spacing:.06em;color:var(--gold);
+    font-size:var(--fs-body);font-weight:var(--fw-title);line-height:1;
+    letter-spacing:0;color:var(--gold);
     white-space:nowrap;
   }
   .brand-en{ display:none }
@@ -212,35 +211,28 @@
   }
   .settings-btn.active svg{transform:rotate(60deg)}
 
-  /* ============ 设置面板 ============
-     挂在 header 下方的浮层卡片，不参与文档流。
-     注意：它曾以内联方式撑开（max-height:0 → 220px + 18px 外边距），
-     展开时会把整页往下推 179px —— 调音页的「开始调音」按钮
-     会被直接推出屏幕（780 屏上从 695 掉到 892，而屏幕只有 780）。 */
+  /* 设置：底部抽屉。遮罩淡入，卡片从下方滑入。 */
   .settings-panel{
-    position:absolute;
-    top:calc(100% + var(--space-2));
-    right:0;
-    width:min(74%, 272px);
-    z-index:60;
-    max-height:0;
-    overflow:hidden;
-    opacity:0;
-    pointer-events:none;              /* 收起时不要隔着透明层挡点击 */
-    transition:max-height .32s cubic-bezier(.4,0,.2,1), opacity .2s ease;
+    position:fixed;inset:0;
+    z-index:70;
+    display:flex;align-items:flex-end;justify-content:center;
+    background:rgba(0,0,0,.5);
+    opacity:0;pointer-events:none;
+    transition:opacity 200ms cubic-bezier(.2,0,0,1);
   }
-  .settings-panel.open{
-    max-height:260px;
-    opacity:1;
-    pointer-events:auto;
-  }
+  .settings-panel.open{ opacity:1;pointer-events:auto }
   .settings-inner{
+    width:100%;max-width:460px;
     background:var(--surface-2);
     border:1px solid var(--outline-strong);
-    border-radius:var(--radius-lg);
-    padding:var(--space-1) var(--space-4);
+    border-bottom:0;
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    padding:0 var(--space-5) calc(var(--space-5) + env(safe-area-inset-bottom));
     box-shadow:var(--elev-3);
+    transform:translateY(100%);
+    transition:transform 220ms cubic-bezier(.2,0,0,1);
   }
+  .settings-panel.open .settings-inner{ transform:translateY(0) }
   .setting-row{
     display:flex;align-items:center;justify-content:space-between;
     padding:var(--space-3) 0;gap:var(--space-2);
@@ -828,7 +820,7 @@
       justify-content:flex-start;
       row-gap:var(--space-2);
       border:0; border-radius:0;
-      padding:var(--space-2) var(--space-5) calc(var(--space-2) + env(safe-area-inset-bottom));
+      padding:var(--space-2) var(--space-5) 0;
     }
     #pageTuner.active{
       display:grid;
@@ -888,57 +880,58 @@
      节拍器样式（由 tools/add_metronome.py 插入）
      ══════════════════════════════════════════════════════ */
 
-  /* ── 顶部切换键：胶囊滑块 ──
-     朴素切换：只有背景位移和颜色变化，不做缩放/抖动 */
-  .app-tabs{
-    position:relative;
-    flex:1 1 auto;min-width:0;max-width:248px;
+  /* 底部导航：图标在上、文字在下，当前项是浅金胶囊 */
+  .bottom-nav{
+    flex:none;
     display:flex;
-    height:48px;
-    background:var(--surface-2);
-    border-radius:var(--radius-lg);
-    box-shadow:inset 0 0 0 1px var(--outline);
-    padding:var(--space-1);
+    align-items:stretch;
+    height:calc(64px + env(safe-area-inset-bottom));
+    padding:0 var(--space-2) env(safe-area-inset-bottom);
+    margin:0 calc(var(--space-5) * -1);
+    background:var(--surface);
+    border-top:1px solid var(--outline);
     box-sizing:border-box;
-  }
-  .app-tabs-thumb{
-    position:absolute;
-    top:4px;left:4px;
-    width:calc(50% - 4px);
-    height:calc(100% - 8px);
-    border-radius:var(--radius-md);
-    background:var(--surface-selected);
-    box-shadow:inset 0 0 0 1px var(--outline-accent);
-    transition:transform .22s cubic-bezier(.4,0,.2,1);
-    pointer-events:none;
-  }
-  .app-tabs[data-index="1"] .app-tabs-thumb{
-    transform:translateX(100%);
+    z-index:4;
   }
   .app-tab{
-    position:relative;z-index:1;
     appearance:none;border:0;background:transparent;
     color:var(--text-2);
-    font-family:inherit;font-size:var(--fs-body);font-weight:500;
-    letter-spacing:.04em;
-    padding:0 var(--space-1);border-radius:var(--radius-md);cursor:pointer;
-    transition:color var(--t-press), transform var(--t-press);
+    font-family:inherit;font-size:var(--fs-caption);font-weight:var(--fw-title);
+    letter-spacing:.02em;
+    padding:6px 0 4px;cursor:pointer;
+    transition:color 160ms cubic-bezier(.2,0,0,1);
     -webkit-tap-highlight-color:transparent;
     flex:1 1 0;min-width:0;
-    display:flex;align-items:center;justify-content:center;gap:var(--space-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   }
   .app-tab:active{ transform:scale(.98) }
   .app-tab.active{ color:var(--accent-light) }
+  .nav-icon{
+    width:64px;height:32px;border-radius:16px;
+    display:flex;align-items:center;justify-content:center;
+    transition:background 200ms cubic-bezier(.2,0,0,1);
+  }
+  .app-tab.active .nav-icon{
+    background:var(--surface-selected);
+  }
   .app-tab svg{
-    width:17px;height:17px;flex:none;
+    width:22px;height:22px;flex:none;
     fill:none;stroke:currentColor;
-    stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;
+    stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;
   }
 
-  /* 页面容器 */
+  /* 页面容器：顶栏和底栏之间的一列，内部均分 */
   .page{display:none;flex-direction:column;flex:1;min-height:0}
-  /* contents：子区块直接参与 .app 的均分，避免某一块吞掉全部空白 */
-  .page.active{display:contents}
+  .page.active{
+    display:flex;
+    justify-content:space-between;
+    padding-bottom:var(--space-2);
+    animation:pageIn 200ms cubic-bezier(.2,0,0,1);
+  }
+  @keyframes pageIn{
+    from{ opacity:0 }
+    to{ opacity:1 }
+  }
 
   /* 切换页时的显示差异 */
   body[data-page="metro"] .mic{display:none}
@@ -955,23 +948,22 @@
      与拍号抽屉同一套骨架，只是内容换成一排可选卡片 */
   .sound-sheet{
     position:fixed;inset:0;
-    z-index:81;              /* 比拍号抽屉高一层，两者不会叠开 */
-    display:flex;align-items:flex-start;justify-content:center;
+    z-index:81;
+    display:flex;align-items:flex-end;justify-content:center;
     background:rgba(0,0,0,.5);
     opacity:0;pointer-events:none;
-    transition:opacity .22s;
+    transition:opacity 200ms cubic-bezier(.2,0,0,1);
   }
   .sound-sheet.open{ opacity:1;pointer-events:auto }
   .sound-sheet-body{
     width:100%;max-width:460px;
     background:var(--surface-2);
-    border-bottom-left-radius:var(--radius-xl);
-    border-bottom-right-radius:var(--radius-xl);
-    padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-5);
-    transform:translateY(-20px);
-    transition:transform .24s cubic-bezier(.4,0,.2,1);
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    padding:0 var(--space-5) calc(var(--space-5) + env(safe-area-inset-bottom));
+    transform:translateY(100%);
+    transition:transform 220ms cubic-bezier(.2,0,0,1);
     border:1px solid var(--outline-strong);
-    border-top:0;
+    border-bottom:0;
     box-shadow:var(--elev-3);
   }
   .sound-sheet.open .sound-sheet-body{ transform:translateY(0) }
@@ -1286,10 +1278,10 @@
   .meter-sheet{
     position:fixed;inset:0;
     z-index:80;
-    display:flex;align-items:flex-start;justify-content:center;
+    display:flex;align-items:flex-end;justify-content:center;
     background:rgba(0,0,0,.5);
     opacity:0;pointer-events:none;
-    transition:opacity .22s;
+    transition:opacity 200ms cubic-bezier(.2,0,0,1);
   }
   .meter-sheet.open{
     opacity:1;pointer-events:auto;
@@ -1297,17 +1289,26 @@
   .meter-sheet-body{
     width:100%;max-width:460px;
     background:var(--surface-2);
-    border-bottom-left-radius:var(--radius-xl);
-    border-bottom-right-radius:var(--radius-xl);
-    padding:calc(var(--space-4) + env(safe-area-inset-top)) var(--space-5) var(--space-5);
-    transform:translateY(-20px);
-    transition:transform .24s cubic-bezier(.4,0,.2,1);
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+    padding:0 var(--space-5) calc(var(--space-4) + env(safe-area-inset-bottom));
+    transform:translateY(100%);
+    transition:transform 220ms cubic-bezier(.2,0,0,1);
     border:1px solid var(--outline-strong);
-    border-top:0;
+    border-bottom:0;
     box-shadow:var(--elev-3);
   }
   .meter-sheet.open .meter-sheet-body{
     transform:translateY(0);
+  }
+  .sheet-grab{
+    display:flex;justify-content:center;align-items:center;
+    padding:10px 0 6px;
+    touch-action:none;
+    cursor:grab;
+  }
+  .sheet-handle{
+    width:32px;height:4px;border-radius:2px;
+    background:rgba(240,235,227,.32);
   }
   .meter-sheet-head{
     display:flex;align-items:center;justify-content:space-between;
@@ -1406,6 +1407,19 @@
     outline-offset:2px;
   }
 
+  @media (prefers-reduced-motion: reduce){
+    .page.active{ animation:none }
+    .settings-panel,
+    .settings-inner,
+    .sound-sheet,
+    .sound-sheet-body,
+    .meter-sheet,
+    .meter-sheet-body,
+    .nav-icon{
+      transition:none;
+    }
+  }
+
   /* 横屏仍用原来的收缩布局，避免均分把矮屏撑破 */
   @media (orientation: landscape) and (max-height: 520px) and (min-aspect-ratio: 3/2){
     #pageMetro.active{ display:flex; flex:1; min-height:0; }
@@ -1433,7 +1447,7 @@
 
   <div class="header">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="nan-tuner">
         <defs>
           <linearGradient id="brandGrad" x1="4.7" y1="4" x2="27.3" y2="28" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="#f6dfb6"/>
@@ -1451,31 +1465,10 @@
         <path d="M 18.67 14.0 C 23.0 14.0 27.0 10.33 27.33 4.0 C 21.67 4.0 17.67 9.0 18.67 14.0 Z" fill="url(#brandGrad)" opacity=".84"/>
       </svg>
       <div class="brand-text">
-        <div class="brand-cn">始信音乐</div>
+        <div class="brand-cn">nan-tuner</div>
         <div class="brand-en">TUNER · METRONOME</div>
       </div>
     </div>
-<!-- METRO-BLOCK:HEADER -->
-    <!-- 调音 / 节拍 切换（由 tools/add_metronome.py 插入） -->
-    <div class="app-tabs" id="appTabs" role="tablist">
-      <span class="app-tabs-thumb" id="tabThumb"></span>
-      <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8 3.5v6.2a4 4 0 0 0 8 0V3.5"/>
-          <path d="M12 13.7v6.8"/>
-        </svg>
-        <span>调音</span>
-      </button>
-      <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M9 3.5h6l3.2 17H5.8z"/>
-          <path d="M12 18.2 15.3 6.8"/>
-        </svg>
-        <span>节拍</span>
-      </button>
-    </div>
-    <!-- /METRO-BLOCK:HEADER -->
-
     <div class="header-right">
       <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
       <button class="settings-btn" id="settingsBtn" type="button" aria-label="设置">
@@ -1486,29 +1479,6 @@
       </button>
     </div>
 
-    <!-- 设置面板：以浮层挂在这里，不占文档流。
-         它曾经是 .header 的兄弟节点、以内联方式撑开 ——
-         展开时把整页往下推 179px，调音页的「开始调音」按钮
-         直接被推到屏幕外（780 屏上从 695 掉到 892）。 -->
-    <div class="settings-panel" id="settingsPanel">
-      <div class="settings-inner">
-        <div class="setting-row">
-          <span class="setting-label">标准音高</span>
-          <div class="a4-control">
-            <button class="a4-btn" id="a4Down" type="button">−</button>
-            <span class="a4-value" id="a4Value">440<span class="unit">Hz</span></span>
-            <button class="a4-btn" id="a4Up" type="button">+</button>
-          </div>
-        </div>
-        <div class="setting-row">
-          <span class="setting-label">视图</span>
-          <div class="view-toggle" id="viewToggle">
-            <button class="view-btn active" data-view="needle">指针</button>
-            <button class="view-btn" data-view="strobe">频闪</button>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div class="page active" id="pageTuner">
@@ -1656,9 +1626,52 @@
     </div>
   </div>
 
-  <!-- 拍号选择抽屉（顶部下拉 + 双列滚轮） -->
+  <nav class="bottom-nav" id="appTabs" role="tablist">
+    <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 3.5v6.2a4 4 0 0 0 8 0V3.5"/>
+          <path d="M12 13.7v6.8"/>
+        </svg>
+      </span>
+      <span>调音</span>
+    </button>
+    <button class="app-tab" id="tabMetro" type="button" role="tab" aria-label="节拍">
+      <span class="nav-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 3.5h6l3.2 17H5.8z"/>
+          <path d="M12 18.2 15.3 6.8"/>
+        </svg>
+      </span>
+      <span>节拍</span>
+    </button>
+  </nav>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-inner">
+      <div class="sheet-grab" id="settingsGrab"><span class="sheet-handle"></span></div>
+      <div class="setting-row">
+        <span class="setting-label">标准音高</span>
+        <div class="a4-control">
+          <button class="a4-btn" id="a4Down" type="button">−</button>
+          <span class="a4-value" id="a4Value">440<span class="unit">Hz</span></span>
+          <button class="a4-btn" id="a4Up" type="button">+</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">视图</span>
+        <div class="view-toggle" id="viewToggle">
+          <button class="view-btn active" data-view="needle">指针</button>
+          <button class="view-btn" data-view="strobe">频闪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 拍号选择：底部抽屉 -->
   <div class="meter-sheet" id="meterSheet">
     <div class="meter-sheet-body">
+      <div class="sheet-grab" id="meterGrab"><span class="sheet-handle"></span></div>
       <div class="meter-sheet-head">
         <span class="meter-sheet-title">拍号</span>
         <button class="meter-sheet-close" id="meterClose" type="button">完成</button>
@@ -1671,9 +1684,10 @@
       </div>
     </div>
   </div>
-  <!-- 音色抽屉（顶部下拉） -->
+  <!-- 音色：底部抽屉 -->
   <div class="sound-sheet" id="soundSheet">
     <div class="sound-sheet-body">
+      <div class="sheet-grab" id="soundGrab"><span class="sheet-handle"></span></div>
       <div class="sound-sheet-head">
         <span class="sound-sheet-title">节拍音色</span>
         <button class="sound-sheet-close" id="soundClose" type="button">完成</button>
@@ -1929,19 +1943,30 @@
     return { midi: r, name: NOTE_NAMES[((r % 12) + 12) % 12], octave: Math.floor(r / 12) - 1 };
   }
 
-  settingsBtn.addEventListener('click', () => {
-    const open = settingsPanel.classList.toggle('open');
-    settingsBtn.classList.toggle('active', open);
-  });
-
-  /* 点面板和齿轮以外的地方就收起。
-     面板现在是从 header 下弹出的浮层，会盖住乐器行；
-     不主动收起的话，用户得再点一次齿轮才能看到被挡住的内容。 */
-  document.addEventListener('click', (e) => {
-    if (!settingsPanel.classList.contains('open')) return;
-    if (e.target.closest('#settingsPanel') || e.target.closest('#settingsBtn')) return;
+  function openSettings(){
+    const meter = document.getElementById('meterSheet');
+    const sound = document.getElementById('soundSheet');
+    if (meter) meter.classList.remove('open');
+    if (sound) sound.classList.remove('open');
+    settingsPanel.classList.add('open');
+    settingsBtn.classList.add('active');
+    if (window.__sheetRemember) window.__sheetRemember();
+  }
+  function closeSettings(){
     settingsPanel.classList.remove('open');
     settingsBtn.classList.remove('active');
+    if (window.__sheetForget) window.__sheetForget();
+  }
+  settingsBtn.addEventListener('click', () => {
+    if (settingsPanel.classList.contains('open')) closeSettings();
+    else openSettings();
+  });
+
+  /* 点遮罩关闭。卡片内部和齿轮本身不算遮罩。 */
+  document.addEventListener('click', (e) => {
+    if (!settingsPanel.classList.contains('open')) return;
+    if (e.target.closest('.settings-inner') || e.target.closest('#settingsBtn')) return;
+    closeSettings();
   });
 
   /* 画刻度
@@ -4101,12 +4126,52 @@ Metronome.prototype.meterLabel = function () {
 
   function renderWheels(){ renderNumWheel(); renderDenWheel(); }
 
+  let sheetPushed = false;
+  let ignorePop = false;
+  function sheetsOpen(){
+    const sp = document.getElementById('settingsPanel');
+    return (sp && sp.classList.contains('open'))
+      || el.meterSheet.classList.contains('open')
+      || el.soundSheet.classList.contains('open');
+  }
+  function rememberSheet(){
+    if (sheetPushed) return;
+    try {
+      history.pushState({ shixinSheet: 1 }, '');
+      sheetPushed = true;
+    } catch (e) {}
+  }
+  function forgetSheet(){
+    if (sheetsOpen() || !sheetPushed) return;
+    sheetPushed = false;
+    ignorePop = true;
+    try { history.back(); } catch (e) { ignorePop = false; }
+  }
+  window.__sheetRemember = rememberSheet;
+  window.__sheetForget = forgetSheet;
+  window.addEventListener('popstate', () => {
+    if (ignorePop) { ignorePop = false; return; }
+    sheetPushed = false;
+    const sp = document.getElementById('settingsPanel');
+    const sb = document.getElementById('settingsBtn');
+    if (sp) sp.classList.remove('open');
+    if (sb) sb.classList.remove('active');
+    el.meterSheet.classList.remove('open');
+    el.soundSheet.classList.remove('open');
+  });
+
   function openSheet() {
-    closeSoundSheet();       /* 两个抽屉互斥 */
+    closeSoundSheet(false);
+    const sp = document.getElementById('settingsPanel');
+    const sb = document.getElementById('settingsBtn');
+    if (sp) sp.classList.remove('open');
+    if (sb) sb.classList.remove('active');
     el.meterSheet.classList.add('open');
+    rememberSheet();
   }
   function closeSheet() {
     el.meterSheet.classList.remove('open');
+    forgetSheet();
   }
 
   el.meterBtn.addEventListener('click', openSheet);
@@ -4188,13 +4253,55 @@ Metronome.prototype.meterLabel = function () {
   }
 
   function openSoundSheet(){
-    closeSheet();            /* 两个抽屉互斥：开一个先关另一个 */
+    el.meterSheet.classList.remove('open');
+    const sp = document.getElementById('settingsPanel');
+    const sb = document.getElementById('settingsBtn');
+    if (sp) sp.classList.remove('open');
+    if (sb) sb.classList.remove('active');
     renderSounds();
     el.soundSheet.classList.add('open');
+    rememberSheet();
   }
-  function closeSoundSheet(){
+  function closeSoundSheet(notify){
     el.soundSheet.classList.remove('open');
+    if (notify !== false) forgetSheet();
   }
+
+  function bindSheetDrag(grab, closeFn){
+    const body = grab.parentElement;
+    let dragging = false, startY = 0, dy = 0;
+    grab.addEventListener('pointerdown', (e) => {
+      if (!grab.closest('.settings-panel.open, .meter-sheet.open, .sound-sheet.open')) return;
+      dragging = true;
+      startY = e.clientY;
+      dy = 0;
+      body.style.transition = 'none';
+      try { grab.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    grab.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      dy = Math.max(0, e.clientY - startY);
+      body.style.transform = 'translateY(' + dy + 'px)';
+    });
+    function end(){
+      if (!dragging) return;
+      dragging = false;
+      body.style.transition = '';
+      body.style.transform = '';
+      if (dy > 72) closeFn();
+    }
+    grab.addEventListener('pointerup', end);
+    grab.addEventListener('pointercancel', end);
+  }
+  bindSheetDrag(document.getElementById('settingsGrab'), () => {
+    const sp = document.getElementById('settingsPanel');
+    const sb = document.getElementById('settingsBtn');
+    if (sp) sp.classList.remove('open');
+    if (sb) sb.classList.remove('active');
+    forgetSheet();
+  });
+  bindSheetDrag(document.getElementById('meterGrab'), closeSheet);
+  bindSheetDrag(document.getElementById('soundGrab'), closeSoundSheet);
 
   el.soundBtn.addEventListener('click', openSoundSheet);
   el.soundClose.addEventListener('click', closeSoundSheet);
