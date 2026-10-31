@@ -6,11 +6,12 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.ConnectivityManager;
-import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
@@ -21,6 +22,9 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -40,10 +44,11 @@ import java.nio.charset.StandardCharsets;
  * 「始信音乐 · 调音器」Android 外壳。
  *
  * 设计要点：
- *  1. 内容从线上站点实时读取 —— 你在电脑上改网页，手机上打开就是新版，无需重装 App。
- *  2. 无网络时自动回退到内置的 offline.html（走 WebViewAssetLoader，属于安全上下文，麦克风照常可用）。
+ *  1. 启动直接打开安装包内置页（offline.html）。国内访问线上站经常要十余秒，
+ *     先等远程页会黑屏；内置页走 WebViewAssetLoader，属于安全上下文，麦克风照常可用。
+ *  2. 若之后导航到远程页且主框架加载失败，再回退到内置页并提示。
  *  3. 麦克风权限由本类接管，弹一次系统授权即可长期使用。
- *  4. 启动后异步检查 app-version.json，有新版则提示更新（跳系统浏览器下载）。
+ *  4. 启动后异步检查 app-version.json，有新版 APK 则提示更新（跳系统浏览器下载）。
  */
 public class MainActivity extends Activity {
 
@@ -58,6 +63,7 @@ public class MainActivity extends Activity {
 
     private WebView webView;
     private WebViewAssetLoader assetLoader;
+    private View splashView;
     private PermissionRequest pendingMicRequest;
     private boolean onLocalFallback = false;
     private boolean updateDialogShown = false;
@@ -94,11 +100,12 @@ public class MainActivity extends Activity {
         root.addView(webView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
+        attachSplash(root);
 
         setContentView(root);
 
         configureWebView();
-        loadStartPage();
+        loadLocalPage(false);      // 本地优先；正常启动不弹「已切换到内置版本」
         checkForUpdate();          // 异步，失败不影响使用
     }
 
@@ -181,6 +188,10 @@ public class MainActivity extends Activity {
                 boolean isHttp = "http".equals(scheme) || "https".equals(scheme);
                 if (isHttp && !host.isEmpty()
                         && (host.equals(SITE_HOST) || host.equals("appassets.androidplatform.net"))) {
+                    // 主框架离开内置页去线上时，允许失败后再回退并提示
+                    if (request.isForMainFrame() && host.equals(SITE_HOST)) {
+                        onLocalFallback = false;
+                    }
                     return false;                 // 自己的站点与内置页，留在 App 内导航
                 }
                 openExternally(uri);              // 其它链接（含 APK 下载）交给系统浏览器
@@ -188,12 +199,25 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageCommitVisible(@NonNull WebView view, @NonNull String url) {
+                if (isAppContent(url)) hideSplash();
+            }
+
+            @Override
+            public void onPageFinished(@NonNull WebView view, @NonNull String url) {
+                if (isAppContent(url)) hideSplash();
+            }
+
+            @Override
             public void onReceivedError(@NonNull WebView view,
                                         @NonNull WebResourceRequest request,
                                         @NonNull WebResourceErrorCompat error) {
-                if (request.isForMainFrame() && !onLocalFallback) {
+                if (!request.isForMainFrame()) return;
+                if (!onLocalFallback) {
                     Log.w(TAG, "远程页面加载失败，回退到内置版本");
                     loadLocalPage();
+                } else {
+                    hideSplash();
                 }
             }
         });
@@ -254,30 +278,70 @@ public class MainActivity extends Activity {
     }
 
     // ============================================================
-    //  页面加载：优先线上，失败回退内置
+    //  页面加载：启动即内置页；远程主框架失败时才回退并提示
     // ============================================================
 
-    private void loadStartPage() {
-        if (isOnline()) {
-            onLocalFallback = false;
-            webView.loadUrl(BuildConfig.SITE_URL);
-        } else {
-            loadLocalPage();
-        }
+    /** 远程页失败时的回退入口，会提示「已切换到内置版本」。 */
+    private void loadLocalPage() {
+        loadLocalPage(true);
     }
 
-    private void loadLocalPage() {
+    /**
+     * @param showOfflineNotice 正常启动传 false。只有「先开了远程页、再失败回退」才提示离线。
+     */
+    private void loadLocalPage(boolean showOfflineNotice) {
         if (onLocalFallback) return;
         onLocalFallback = true;
         webView.loadUrl(LOCAL_PAGE);
-        Toast.makeText(this, R.string.offline_toast, Toast.LENGTH_SHORT).show();
+        if (showOfflineNotice) {
+            Toast.makeText(this, R.string.offline_toast, Toast.LENGTH_SHORT).show();
+        }
     }
 
-    private boolean isOnline() {
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        if (cm == null) return true;
-        NetworkCapabilities nc = cm.getNetworkCapabilities(cm.getActiveNetwork());
-        return nc != null && nc.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+    /** 盖在 WebView 上的启动层：深色底 + 图标 +「加载中」，页面真正显示后卸掉。 */
+    private void attachSplash(FrameLayout root) {
+        float density = getResources().getDisplayMetrics().density;
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        box.setBackgroundColor(getColor(R.color.app_bg));
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        logo.setContentDescription(getString(R.string.app_name));
+        int size = Math.round(72 * density);
+        box.addView(logo, new LinearLayout.LayoutParams(size, size));
+
+        TextView label = new TextView(this);
+        label.setText(R.string.splash_loading);
+        label.setTextColor(getColor(R.color.app_accent));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        label.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = Math.round(16 * density);
+        box.addView(label, labelLp);
+
+        splashView = box;
+        root.addView(splashView, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void hideSplash() {
+        if (splashView == null) return;
+        View splash = splashView;
+        splashView = null;
+        ViewGroup parent = (ViewGroup) splash.getParent();
+        if (parent != null) parent.removeView(splash);
+    }
+
+    /** about:blank 是 WebView 清空页面时的中间态，不能把它当成「内容已显示」。 */
+    private static boolean isAppContent(String url) {
+        return url != null && !url.isEmpty() && !"about:blank".equals(url);
     }
 
     /** 用系统浏览器 / 其它 App 打开外部链接 */
