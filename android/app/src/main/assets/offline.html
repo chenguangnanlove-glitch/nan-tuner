@@ -2037,6 +2037,7 @@
     setListeningText();
     centsEl.className = 'cents';
     updateButtons();
+    writeSetting(MODE_KEY, mode);
   }
 
   modeTabsEl.forEach(t => {
@@ -2063,6 +2064,30 @@
     }
   });
 
+  const A4_KEY = 'shixin-a4';
+  const MODE_KEY = 'shixin-instrument';
+
+  function readSetting(key){
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function writeSetting(key, value){
+    try { localStorage.setItem(key, String(value)); } catch (e) {}
+  }
+
+  /* 无效、超范围、空值都回到 440。步进与按钮一致，0.5Hz。 */
+  function parseA4(raw){
+    if (raw == null || raw === '') return 440;
+    const n = Number(raw);
+    if (!isFinite(n)) return 440;
+    const snapped = Math.round(n * 2) / 2;
+    if (snapped < 430 || snapped > 450) return 440;
+    return snapped;
+  }
+  function parseMode(raw){
+    if (raw === 'guitar' || raw === 'ukulele' || raw === 'piano') return raw;
+    return 'guitar';
+  }
+
   function updateA4Display(){
     a4ValueEl.innerHTML = a4Cal + '<span class="unit">Hz</span>';
   }
@@ -2072,6 +2097,7 @@
     a4Cal = next;
     updateA4Display();
     resetSmoothing();
+    writeSetting(A4_KEY, a4Cal);
   }
   a4DownEl.addEventListener('click', () => nudgeA4(-0.5));
   a4UpEl.addEventListener('click', () => nudgeA4(0.5));
@@ -3198,10 +3224,13 @@
   buildPianoKeys();
   buildLevelSeg();
   updateOctaveDisplay();
+  a4Cal = parseA4(readSetting(A4_KEY));
   updateA4Display();
   updateButtons();
   clearDisplay();
   resizeStrobe();
+  const savedMode = parseMode(readSetting(MODE_KEY));
+  if (savedMode !== mode) switchMode(savedMode);
 })();
 </script>
 <script>
@@ -4043,6 +4072,35 @@ Metronome.prototype.meterLabel = function () {
      ══════════════════════════════════════════════════════ */
 
   const SOUND_KEY = 'shixin-metro-sound';
+  const BPM_KEY = 'shixin-metro-bpm';
+  const METER_KEY = 'shixin-metro-meter';
+
+  function readStore(key){
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function writeStore(key, value){
+    try { localStorage.setItem(key, String(value)); } catch (e) {}
+  }
+
+  /* 不是整数、或超出 30–250，就回到默认 120。 */
+  function parseStoredBpm(raw){
+    if (typeof raw !== 'string' || !/^\d{1,3}$/.test(raw)) return 120;
+    const n = parseInt(raw, 10);
+    if (n < BPM_MIN || n > BPM_MAX) return 120;
+    return n;
+  }
+  /* 分子 2–12，分母只能是 2/4/6/8/12。格式必须是「6/8」。 */
+  function parseStoredMeter(raw){
+    const fallback = { num: 4, den: 4 };
+    if (typeof raw !== 'string') return fallback;
+    const m = /^(\d{1,2})\/(\d{1,2})$/.exec(raw);
+    if (!m) return fallback;
+    const num = parseInt(m[1], 10);
+    const den = parseInt(m[2], 10);
+    if (num < NUM_MIN || num > NUM_MAX) return fallback;
+    if (DEN_VALUES.indexOf(den) < 0) return fallback;
+    return { num: num, den: den };
+  }
 
   function renderSounds(){
     el.soundGrid.innerHTML = '';
@@ -4114,6 +4172,7 @@ Metronome.prototype.meterLabel = function () {
     renderWheels();
     buildBeatDots();
     clearBeatHighlight();
+    writeStore(METER_KEY, metro.num + '/' + metro.den);
   }
 
   /* ══════════════════════════════════════════════════════
@@ -4174,6 +4233,7 @@ Metronome.prototype.meterLabel = function () {
     metro.setBpm(bpm);
     if (metro.bpm === old) return;
     paintBpm();
+    writeStore(BPM_KEY, metro.bpm);
   }
 
   /* ══════════════════════════════════════════════════════
@@ -4388,9 +4448,12 @@ Metronome.prototype.meterLabel = function () {
      初始化
      ══════════════════════════════════════════════════════ */
 
-  setMeter(4, 4);
-  metro.setBpm(120);
+  const bootMeter = parseStoredMeter(readStore(METER_KEY));
+  const bootBpm = parseStoredBpm(readStore(BPM_KEY));
+  setMeter(bootMeter.num, bootMeter.den);
+  metro.setBpm(bootBpm);
   paintBpm();                 // 初始化时直接画，不能走 setBpm（值没变会跳过）
+  writeStore(BPM_KEY, metro.bpm);
   el.ring.setAttribute('aria-label', '节拍器已停止，点一下开始');
   document.body.dataset.page = 'tuner';
   el.tabs.dataset.index = '0';
