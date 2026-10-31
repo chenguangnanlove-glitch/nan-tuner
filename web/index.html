@@ -153,16 +153,20 @@
 
   /* ============ 顶部 ============ */
   .header{
-    display:flex;align-items:center;justify-content:space-between;
-    gap:var(--space-2);margin:0;flex:none;
+    display:flex;flex-direction:column;align-items:stretch;
+    gap:var(--space-4);margin:0 0 var(--space-4);flex:none;
     position:relative;
   }
-  .brand{
-    display:flex;flex-direction:column;align-items:center;gap:var(--space-1);
-    flex:none;
+  .header-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:var(--space-2);min-width:0;
   }
-  .brand-mark{width:36px;height:36px;flex:none;display:block}
-  .brand-text{display:flex;flex-direction:column;align-items:center}
+  .brand{
+    display:flex;flex-direction:row;align-items:center;gap:var(--space-2);
+    flex:none;min-width:0;
+  }
+  .brand-mark{width:32px;height:32px;flex:none;display:block}
+  .brand-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
   .brand-cn{
     font-size:var(--fs-caption);font-weight:var(--fw-title);line-height:1;
     letter-spacing:.04em;color:var(--gold);
@@ -884,7 +888,7 @@
   /* 顶部胶囊：调音 / 节拍，滑块标出当前页 */
   .app-tabs{
     position:relative;
-    flex:1 1 auto;min-width:0;max-width:248px;
+    width:100%;
     display:flex;
     height:48px;
     background:var(--surface-2);
@@ -1437,6 +1441,7 @@
 <div class="app" id="app">
 
   <div class="header">
+    <div class="header-bar">
     <div class="brand">
       <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="始信音乐">
         <defs>
@@ -1460,7 +1465,17 @@
         <div class="brand-en">TUNER · METRONOME</div>
       </div>
     </div>
-    <div class="app-tabs" id="appTabs" role="tablist">
+    <div class="header-right">
+      <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
+      <button class="settings-btn" id="settingsBtn" type="button" aria-label="设置">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.08-1.51 1.7 1.7 0 0 0-1.82.33l-.06-.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.68 15a1.7 1.7 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.68a1.7 1.7 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="app-tabs" id="appTabs" role="tablist">
       <span class="app-tabs-thumb" id="tabThumb"></span>
       <button class="app-tab active" id="tabTuner" type="button" role="tab" aria-label="调音">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1477,17 +1492,7 @@
         </svg>
         <span>节拍</span>
       </button>
-    </div>
-    <div class="header-right">
-      <div class="mic" id="micStatus"><span class="dot"></span><span id="micText">未启动</span></div>
-      <button class="settings-btn" id="settingsBtn" type="button" aria-label="设置">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.82-.33 1.7 1.7 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.08-1.51 1.7 1.7 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.68 15a1.7 1.7 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.68a1.7 1.7 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
-    </div>
-
+  </div>
   </div>
 
   <div class="page active" id="pageTuner">
