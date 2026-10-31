@@ -1840,6 +1840,11 @@
   let a4Cal = 440;
   let view = 'needle';
   let audioCtx = null;
+  /* getUserMedia 的流必须留着。只 audioCtx.close() 停不掉音轨，
+     手机录音指示灯会一直亮。micGen 用来作废「已经发出去、还没回来」的申请。 */
+  let micStream = null;
+  let micGen = 0;
+  let micRestore = null;
   let analyser = null;
   let timeBuf  = null;
   let corrBuf  = null;
@@ -2975,6 +2980,63 @@
     requestAnimationFrame(loop);
   }
 
+  /* 关掉当前麦克风的全部音轨，录音指示灯才会灭。 */
+  function releaseMic(){
+    micGen++;
+    const s = micStream;
+    micStream = null;
+    if (!s) return;
+    try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
+  }
+
+  function stopTracks(stream){
+    if (!stream) return;
+    try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
+  }
+
+  /* 申请麦克风。超时后迟到的流、页面已经隐藏、或这次申请已被 releaseMic 作废时，
+     都要把音轨关掉，不能留在 micStream 里。 */
+  async function acquireMic(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error('浏览器不支持麦克风');
+    }
+    const gen = micGen;
+    const gum = navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 }
+    });
+    let stream;
+    try {
+      stream = await withTimeout(gum, 10000, '麦克风');
+    } catch (e){
+      // 权限弹窗被忽略 / 麦克风被占 / 系统音频异常时，这个 Promise 会一直挂着。
+      // 等 10 秒还没结果就报错，并在后台把迟到拿到的流关掉（不然麦克风被白占）。
+      gum.then(function(s){ stopTracks(s); }).catch(function(){});
+      throw e;
+    }
+    if (gen !== micGen || document.hidden){
+      stopTracks(stream);
+      const err = new Error('页面已隐藏');
+      err.silent = true;
+      throw err;
+    }
+    micStream = stream;
+    return stream;
+  }
+
+  function wireMic(ctx, stream){
+    const src = ctx.createMediaStreamSource(stream);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 55; hp.Q.value = 0.6;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 3500; lp.Q.value = 0.6;
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0;
+    src.connect(hp); hp.connect(lp); lp.connect(analyser);
+    timeBuf = new Float32Array(analyser.fftSize);
+    corrBuf = new Float32Array(analyser.fftSize);
+  }
+
   async function start(){
     /* 如果停止后的归位动画还在跑，先停掉 —— 否则会和 loop 抢着画指针 */
     cancelAnimationFrame(needleHomeRaf);
@@ -2982,35 +3044,9 @@
     startBtn.disabled = true;
     startBtn.textContent = '启动中';
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        throw new Error('浏览器不支持麦克风');
-      }
       const ctx = await ensureAudio();
-      // 权限弹窗被忽略 / 麦克风被占 / 系统音频异常时，这个 Promise 会一直挂着。
-      // 等 10 秒还没结果就报错，并在后台把迟到拿到的流关掉（不然麦克风被白占）。
-      const gum = navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 }
-      });
-      let stream;
-      try {
-        stream = await withTimeout(gum, 10000, '麦克风');
-      } catch (e){
-        gum.then(function(s){
-          try { s.getTracks().forEach(function(t){ t.stop(); }); } catch(_){}
-        }).catch(function(){});
-        throw e;
-      }
-      const src = ctx.createMediaStreamSource(stream);
-      const hp = ctx.createBiquadFilter();
-      hp.type = 'highpass'; hp.frequency.value = 55; hp.Q.value = 0.6;
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass'; lp.frequency.value = 3500; lp.Q.value = 0.6;
-      analyser = ctx.createAnalyser();
-      analyser.fftSize = 8192;
-      analyser.smoothingTimeConstant = 0;
-      src.connect(hp); hp.connect(lp); lp.connect(analyser);
-      timeBuf = new Float32Array(analyser.fftSize);
-      corrBuf = new Float32Array(analyser.fftSize);
+      const stream = await acquireMic();
+      wireMic(ctx, stream);
       running = true;
       lastGoodTs = performance.now();
       lastAnalysis = 0; missFrames = 0; smoothLevel = 0;
@@ -3029,7 +3065,11 @@
         requestAnimationFrame(loop);
       });
     } catch (err){
-      console.error(err);
+      /* 申请过程中失败、或拿到流之后接线失败：音轨不能留着 */
+      releaseMic();
+      running = false;
+      const silent = !!(err && err.silent);
+      if (!silent) console.error(err);
       let msg = '无法访问麦克风';
       if (err && err.name === 'NotAllowedError') msg = '麦克风权限被拒绝';
       else if (err && err.name === 'NotFoundError') msg = '未找到麦克风设备';
@@ -3045,12 +3085,13 @@
       micStatus.classList.remove('on');
       micText.textContent = '未启动';
       appEl.classList.remove('listening');   /* 启动失败也别留波纹 */
-      alert(msg);
+      if (!silent) alert(msg);
     }
   }
 
   function stop(){
     running = false;
+    releaseMic();
     if (audioCtx){ try { audioCtx.close(); } catch(e){} audioCtx = null; }
     /* 总线绑在已关闭的 context 上，一起丢掉 */
     sampleBus = null; sampleBusCtx = null;
@@ -3109,12 +3150,48 @@
     startBtn.click();
   });
 
+  /* 切到后台时音轨已经停了。若界面仍是「监听中」，回到前台再重新打开麦克风。 */
+  function resumeListening(){
+    if (document.hidden || !running || micStream || micRestore) return;
+    const job = (async function(){
+      try {
+        const ctx = await ensureAudio();
+        if (!running || document.hidden || micStream) return;
+        const stream = await acquireMic();
+        if (!running || document.hidden || !micStream){
+          releaseMic();
+          return;
+        }
+        wireMic(ctx, stream);
+      } catch (e){
+        releaseMic();
+        /* 还在前台、又不是「页面已隐藏」：恢复失败就停掉，避免停在「监听中」却没有麦克风 */
+        if (running && !document.hidden && !(e && e.silent)) stop();
+      }
+    })();
+    micRestore = job;
+    function done(){
+      if (micRestore === job) micRestore = null;
+      if (!document.hidden && running && !micStream) resumeListening();
+    }
+    job.then(done, done);
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden){
+      releaseMic();
       if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-    } else {
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    } else if (running){
+      resumeListening();
+    } else if (audioCtx && audioCtx.state === 'suspended'){
+      audioCtx.resume();
     }
+  });
+
+  /* 关掉页面、或进入往返缓存时，visibilitychange 不一定先到 */
+  window.addEventListener('pagehide', function(){ releaseMic(); });
+  window.addEventListener('pageshow', function(){
+    if (!document.hidden && running) resumeListening();
   });
 
   buildStringButtons();
