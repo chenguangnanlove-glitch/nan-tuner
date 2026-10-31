@@ -1,6 +1,6 @@
 {
-  "versionCode": 5,
-  "versionName": "1.1.3",
+  "versionCode": 6,
+  "versionName": "1.1.4",
   "notes": "界面：节拍页恢复为上个版本的布局，调音页对齐它（圆环、音量条、提示文字同高，音符对准拍点）；节拍器音量偏小；吉他低音弦在手机外放听不见；App 内节拍页设置面板只剩一条空线。",
   "apk": "/download/shixin-tuner.apk"
 }
