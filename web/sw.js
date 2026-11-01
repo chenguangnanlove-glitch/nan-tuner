@@ -12,7 +12,7 @@
  * 文件一变 URL 就变，缓存自然失效。清单本身没有哈希，所以单独走网络优先。
  */
 
-const CACHE = 'shixin-tuner-v12';
+const CACHE = 'shixin-tuner-v13';
 
 const PRECACHE = [
   '/',

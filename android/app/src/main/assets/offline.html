@@ -758,16 +758,32 @@
   }
   .start:disabled{opacity:.5;cursor:wait}
 
-  .hint{
-    text-align:center;
-    font-size:var(--fs-caption);font-weight:var(--fw-caption);
-    color:var(--text-2);
+  /* 首次使用提示：不占文档流，出现几秒后消失。 */
+  .usage-tip{
+    position:absolute;
+    left:50%;
+    top:0;
+    transform:translateX(-50%);
+    z-index:40;
+    max-width:calc(100% - var(--space-6) * 2);
     margin:0;
+    padding:var(--space-2) var(--space-4);
+    border:0;
+    border-radius:var(--radius-md);
+    background:var(--surface-3);
+    color:var(--text-2);
+    font-family:inherit;
+    font-size:var(--fs-caption);
+    font-weight:var(--fw-caption);
     letter-spacing:.02em;
     line-height:1.5;
-    flex:none;
+    text-align:center;
+    cursor:pointer;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 200ms cubic-bezier(.2,0,0,1);
   }
-  .hint b{color:var(--text);font-weight:500}
+  .usage-tip.show{ opacity:1; pointer-events:auto }
 
   /* 小屏高度时压缩 */
   /* ── 小屏适配 ──
@@ -841,9 +857,8 @@
     #pageTuner.active{
       display:grid;
       grid-template-columns:1fr 1fr;
-      /* 三行等分：右栏三件（弦 / 音量 / 提示）均分剩余高度，
-         与左栏圆环的视觉重心对齐，不会全挤在上半截。 */
-      grid-template-rows:auto 1fr 1fr 1fr;
+      /* 右栏两件（弦 / 音量）均分剩余高度，与左栏圆环对齐。 */
+      grid-template-rows:auto 1fr 1fr;
       column-gap:var(--space-5);
       align-items:center;
     }
@@ -852,7 +867,7 @@
       margin:0 auto; max-width:420px; width:100%;
     }
     #pageTuner .center{
-      grid-column:1; grid-row:2 / 5;
+      grid-column:1; grid-row:2 / 4;
       margin-top:0; min-height:0;
       justify-content:center;      /* 纵向居中，圆环不被顶到上沿 */
       /* 竖屏那套 flex:1 + 封顶 + 顶部内边距是给单栏用的，
@@ -866,10 +881,6 @@
     #pageTuner .level-row{
       grid-column:2; grid-row:3;
       margin-top:0; width:100%;
-    }
-    #pageTuner .hint{
-      grid-column:2; grid-row:4;
-      align-self:center; margin-top:0;
     }
     /* 56vh 让圆环始终留出上下呼吸；250px 封顶防止平板横屏过大。
        注意：节拍页在横屏下不能同步放大 —— 单栏结构里圆环每大 1px
@@ -942,7 +953,15 @@
   .page.active{
     display:flex;
     justify-content:space-between;
+    /* 去掉底部提示后，上下各留一截，内容在顶栏和屏幕底之间居中。 */
+    padding:var(--space-5) 0;
     animation:pageIn 200ms cubic-bezier(.2,0,0,1);
+  }
+  @media (max-height:780px){
+    .page.active{ padding:var(--space-4) 0 }
+  }
+  @media (max-height:660px){
+    .page.active{ padding:var(--space-2) 0 }
   }
   @keyframes pageIn{
     from{ opacity:0 }
@@ -951,7 +970,7 @@
 
   /* 网页上节拍页仍只留「下载安装」。
      App 内没有这一行：若继续藏起标准音高和视图，点开设置就是空面板。 */
-  body[data-page="metro"]:not(.in-app) .setting-row:not(#appRow){display:none}
+  body[data-page="metro"]:not(.in-app) .setting-row:not(#appRow):not(#tipRow){display:none}
 
   /* ══════════════════════════════════════════════════════
      节拍器
@@ -1091,11 +1110,11 @@
     padding:0;
   }
   /* 常见手机高度上，弦按钮+音量比拍点+音量高 49px。
-     space-between 把差额分进 4 段空隙，节拍表盘会低 12px。
-     上提 12px，再用同样的下边距把拍点顶回原处。矮屏断点两边的
+     去掉底部提示后还剩 3 段空隙，差额约 16px。
+     上提 16px，再用同样的下边距把拍点顶回原处。矮屏断点两边的
      高度关系变了，不在这里硬补。 */
   @media (min-height:781px){
-    .metro-ring-area{ margin-top:-12px; margin-bottom:12px }
+    .metro-ring-area{ margin-top:-16px; margin-bottom:16px }
   }
   /* 圆环尺寸由 JS（syncRingSize）按可用空间算出，写进 --ring-size。
      这里必须给「固定」的宽高 —— 不能让尺寸由内容撑开，
@@ -1280,9 +1299,6 @@
   .vol-seg i.on{ background:var(--accent) }
   .vol-seg:focus-visible{ outline:2px solid var(--accent);outline-offset:4px }
 
-  /* 节拍的提示行：位置刻意对齐调音页那一行，切换时底部不跳 */
-  .metro-hint{ margin-top:0 }
-
   /* ══════════════════════════════════════════════════════
      拍号选择面板（底部弹出）
      ══════════════════════════════════════════════════════ */
@@ -1423,7 +1439,8 @@
     .app-tabs-thumb,
     .settings-btn,
     .settings-btn::after,
-    .settings-btn .icon{
+    .settings-btn .icon,
+    .usage-tip{
       transition:none;
     }
   }
@@ -1431,6 +1448,7 @@
   /* 横屏仍用原来的收缩布局，避免均分把矮屏撑破 */
   @media (orientation: landscape) and (max-height: 520px) and (min-aspect-ratio: 3/2){
     #pageMetro.active{ display:flex; flex:1; min-height:0; }
+    .page.active{ padding-top:0; padding-bottom:0 }
     .metro-wrap{ display:flex; flex-direction:column; flex:1; min-height:0; }
     .metro-ring-area{ flex:1 1 auto; min-height:0; max-height:none; }
   }
@@ -1580,7 +1598,6 @@
   </div>
 
   <button class="start" id="startBtn">开始调音</button>
-  <div class="hint" id="hintText">拨响琴弦即可 · 点琴弦按钮可听标准音</div>
 
   </div><!-- /pageTuner -->
 
@@ -1643,9 +1660,6 @@
              aria-valuemin="0" aria-valuemax="100" aria-valuenow="70"></div>
       </div>
 
-      <!-- 操作提示：与调音页的提示行对齐，两页底部边界一致 -->
-      <div class="hint metro-hint" id="metroHint">点圆环开始 · 拖动圆环调速</div>
-
     </div>
   </div>
 
@@ -1670,6 +1684,10 @@
           <button class="view-btn active" data-view="needle">指针</button>
           <button class="view-btn" data-view="strobe">频闪</button>
         </div>
+      </div>
+      <div class="setting-row" id="tipRow">
+        <span class="setting-label">再看一次使用提示</span>
+        <button class="view-btn" id="replayTip" type="button">显示</button>
       </div>
     </div>
   </div>
@@ -1707,6 +1725,8 @@
   </div>
 
   <!-- /METRO-BLOCK:PAGES -->
+
+  <div class="usage-tip" id="usageTip" role="status" aria-live="polite" aria-hidden="true"></div>
 
 </div>
 
@@ -1807,7 +1827,6 @@
         { num: 1, name: 'E', oct: 4, midi: 64 },
       ],
       detectRange: [70, 400],
-      hint: '拨响琴弦即可 · 点琴弦按钮可听标准音',
     },
     ukulele: {
       type: 'strings',
@@ -1821,13 +1840,11 @@
         { num: 1, name: 'A', oct: 4, midi: 69 },
       ],
       detectRange: [200, 500],
-      hint: '4 弦标准调弦 G-C-E-A · 拨弦自动识别',
     },
     piano: {
       type: 'piano',
       prefix: 'piano_',
       detectRange: [65, 2100],
-      hint: '按钢琴键可听标准音 · 弹奏自动识别',
     },
   };
 
@@ -1897,7 +1914,6 @@
   const modeTabsEl  = document.querySelectorAll('.mode-tab');
   const startBtn    = document.getElementById('startBtn');
   const levelSegEl  = document.getElementById('levelSeg');
-  const hintText    = document.getElementById('hintText');
   const a4DownEl    = document.getElementById('a4Down');
   const a4UpEl      = document.getElementById('a4Up');
   const a4ValueEl   = document.getElementById('a4Value');
@@ -1923,6 +1939,73 @@
     settingsBtn.title = label;
   }
   window.syncSettingsLive = syncSettingsLive;
+
+  /* 两页共用的首次提示。不占布局，3.5 秒或点一下就收起。 */
+  const usageTipEl = document.getElementById('usageTip');
+  const TIP_KEY = 'shixin-usage-tip';
+  const TIP_MS = 3500;
+  const USAGE_TIPS = {
+    tuner: '轻触开始',
+    metro: '点圆环开始 · 拖动圆环调速',
+  };
+  let usageTipTimer = 0;
+  let usageTipWatch = null;
+  function readTipSeen(){
+    try { return JSON.parse(localStorage.getItem(TIP_KEY) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function writeTipSeen(seen){
+    try { localStorage.setItem(TIP_KEY, JSON.stringify(seen)); } catch (e) {}
+  }
+  function hideUsageTip(){
+    clearTimeout(usageTipTimer);
+    usageTipTimer = 0;
+    if (usageTipWatch){
+      document.removeEventListener('pointerdown', usageTipWatch, true);
+      usageTipWatch = null;
+    }
+    if (!usageTipEl) return;
+    usageTipEl.classList.remove('show');
+    usageTipEl.setAttribute('aria-hidden', 'true');
+  }
+  function showUsageTip(page, force){
+    if (!usageTipEl) return;
+    const text = USAGE_TIPS[page];
+    if (!text) return;
+    const seen = readTipSeen();
+    hideUsageTip();
+    if (!force && seen[page]) return;
+    usageTipEl.textContent = text;
+    const anchor = document.querySelector(page === 'metro' ? '.vol-row' : '.level-row');
+    if (anchor){
+      const app = document.getElementById('app').getBoundingClientRect();
+      const box = anchor.getBoundingClientRect();
+      const tipH = usageTipEl.offsetHeight || 36;
+      let top = box.top - app.top - 8 - tipH;
+      if (top < 72) top = 72;
+      usageTipEl.style.top = top + 'px';
+    }
+    usageTipEl.classList.add('show');
+    usageTipEl.setAttribute('aria-hidden', 'false');
+    seen[page] = 1;
+    writeTipSeen(seen);
+    usageTipTimer = setTimeout(hideUsageTip, TIP_MS);
+    usageTipWatch = function(e){
+      if (e.target && e.target.closest && e.target.closest('#replayTip')) return;
+      hideUsageTip();
+    };
+    document.addEventListener('pointerdown', usageTipWatch, true);
+  }
+  window.showUsageTip = showUsageTip;
+  if (usageTipEl) usageTipEl.addEventListener('click', hideUsageTip);
+  const replayTipBtn = document.getElementById('replayTip');
+  if (replayTipBtn){
+    replayTipBtn.addEventListener('click', () => {
+      closeSettings();
+      const page = document.body.dataset.page === 'metro' ? 'metro' : 'tuner';
+      showUsageTip(page, true);
+    });
+  }
 
   let mode = 'guitar';
   let a4Cal = 440;
@@ -2131,7 +2214,6 @@
       buildPianoKeys();
       updateOctaveDisplay();
     }
-    hintText.innerHTML = inst.hint;
     clearDisplay();
     setListeningText();
     centsEl.className = 'cents';
@@ -4046,6 +4128,8 @@ Metronome.prototype.meterLabel = function () {
     // 正在输入速度的话，先结束输入（避免输入框一直张着）
     if (editing) endEdit(true);
 
+    if (window.showUsageTip) window.showUsageTip(page, false);
+
     // 顺手收起设置面板 —— 切页后还张着会显得乱
     try {
       const panel = document.getElementById('settingsPanel');
@@ -4639,6 +4723,7 @@ Metronome.prototype.meterLabel = function () {
   el.ring.setAttribute('aria-label', '节拍器已停止，点一下开始');
   document.body.dataset.page = 'tuner';
   el.tabs.dataset.index = '0';
+  if (window.showUsageTip) window.showUsageTip('tuner', false);
 
 })();
 
